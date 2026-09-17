@@ -34,26 +34,35 @@ identity_providers:
         pkce_challenge_method: S256
 ```
 
-Das Klartext-Secret kommt in die `.env` als `OIDC_CLIENT_SECRET`, der Hash zu Authelia.
+Das ist bereits umgesetzt: Der Client steht in `authelia/config/configuration.yml`
+des `traefik`-Repos, das passende Klartext-Secret in der `.env.enc` hier. Damit
+die Änderung wirksam wird, muss das `traefik`-Repo gepusht und damit ausgerollt
+werden.
+
+Zugang steuert die Gruppe `ourspots` in der `users_database.yml` – wer dort nicht
+eingetragen ist, kommt nicht an der Anmeldung vorbei.
 
 **Wichtig:** `/s/*` und `/api/public/*` müssen ohne Forward-Auth erreichbar bleiben,
 sonst verlangt Authelia auch von Leuten ohne Konto einen Login und die
 Teilen-Links funktionieren nicht.
 
-## 2. Konfiguration verschlüsseln
+## 2. Konfiguration
+
+`.env.enc` liegt bereits im Repository: Datenbankpasswörter, Session-Schlüssel und
+das OIDC-Secret sind erzeugt und passen zum Hash in der Authelia-Konfiguration.
+
+Offen ist nur `ORS_API_KEY` (kostenlos auf openrouteservice.org). Zum Ergänzen:
 
 ```bash
-cp .env.sample .env
-# Werte eintragen, mindestens:
-#   MYSQL_PASSWORD / MYSQL_ROOT_PASSWORD  (frei wählen)
-#   DATABASE_URL                          (dasselbe Passwort eintragen)
-#   OIDC_CLIENT_SECRET                    (Klartext aus Schritt 1)
-#   SESSION_SECRET                        (openssl rand -hex 32)
-#   ORS_API_KEY                           (openrouteservice.org, kostenlos)
-
-sops --encrypt --input-type dotenv --output-type dotenv --output .env.enc .env
-git add .env.enc && git commit -m "Konfiguration"
+sops --decrypt --input-type dotenv --output-type dotenv --output .env .env.enc
+# ORS_API_KEY eintragen
+sops --encrypt --age age16cuepewz9gr62xq4cfc390rc44cjckrk6gvygsdyqsqskvd573aq98xn5d \
+  --input-type dotenv --output-type dotenv --output .env.enc .env
+rm .env && git add .env.enc && git commit -m "ORS-Schlüssel ergänzt"
 ```
+
+Ohne den Schlüssel funktioniert die App vollständig, nur die Routenberechnung
+meldet, dass er fehlt.
 
 `.env` selbst ist in `.gitignore`; nur `.env.enc` gehört ins Repository. Die
 Pipeline entschlüsselt sie mit dem Woodpecker-Secret `sops_age_key`.
