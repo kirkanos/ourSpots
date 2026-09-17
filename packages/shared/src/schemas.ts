@@ -101,6 +101,11 @@ export const waypointBulkSchema = z.object({
   waypoints: z.array(waypointInputSchema).max(200),
 });
 
+/** Etappen ebenso – das hält die Reihenfolge lückenlos. */
+export const stageBulkSchema = z.object({
+  stages: z.array(stageInputSchema).max(100),
+});
+
 // ---------------------------------------------------------------------------
 // Routenberechnung
 // ---------------------------------------------------------------------------
@@ -116,6 +121,13 @@ export const routeOptionsSchema = z.object({
   force: z.boolean().default(false),
 });
 export type RouteOptions = z.infer<typeof routeOptionsSchema>;
+
+export const optimizeOptionsSchema = z.object({
+  stageId: uuid.nullish(),
+  /** Start und Ziel bleiben immer fest; nur die Zwischenziele werden sortiert. */
+  keepEnds: z.boolean().default(true),
+});
+export type OptimizeOptions = z.infer<typeof optimizeOptionsSchema>;
 
 // ---------------------------------------------------------------------------
 // Stellplatz

@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import type { Prisma, Trip } from '@prisma/client';
 import type {
   StageDto,
+  StageInput,
   TripDto,
   TripInput,
   TripMemberInput,
@@ -193,6 +194,53 @@ export class TripsService {
       date: fromDateOnly(s.date),
       notes: s.notes,
     }));
+  }
+
+  /**
+   * Etappen werden wie die Wegpunkte als vollständige Liste gespeichert.
+   * Wegpunkte gelöschter Etappen verlieren nur ihre Zuordnung – sie gehören
+   * weiterhin zur Reise und sollen nicht mit verschwinden.
+   */
+  async replaceStages(
+    tripId: string,
+    userId: string,
+    input: StageInput[],
+  ): Promise<StageDto[]> {
+    await this.requireRole(tripId, userId, 'editor');
+
+    const rows = input
+      .slice()
+      .sort((a, b) => a.seq - b.seq)
+      .map((stage, index) => ({
+        id: stage.id ?? newId(),
+        tripId,
+        seq: index,
+        title: stage.title ?? null,
+        date: toDateOnly(stage.date),
+        notes: stage.notes ?? null,
+      }));
+
+    const keptIds = rows.map((row) => row.id);
+
+    await this.prisma.$transaction([
+      this.prisma.waypoint.updateMany({
+        where: { tripId, stageId: { notIn: keptIds.length ? keptIds : ['-'] } },
+        data: { stageId: null },
+      }),
+      this.prisma.stage.deleteMany({
+        where: { tripId, id: { notIn: keptIds.length ? keptIds : ['-'] } },
+      }),
+      ...rows.map((row) =>
+        this.prisma.stage.upsert({
+          where: { id: row.id },
+          create: row,
+          update: { seq: row.seq, title: row.title, date: row.date, notes: row.notes },
+        }),
+      ),
+      this.prisma.route.deleteMany({ where: { tripId } }),
+    ]);
+
+    return this.listStages(tripId, userId);
   }
 
   async listWaypoints(tripId: string, userId: string): Promise<WaypointDto[]> {

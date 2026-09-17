@@ -90,6 +90,38 @@ export interface RouteDto {
   cached: boolean;
 }
 
+/** Ergebnis der Reihenfolgen-Optimierung – wird erst nach Bestätigung übernommen. */
+export interface OptimizeResultDto {
+  /** Wegpunkt-IDs in der vorgeschlagenen Reihenfolge. */
+  waypointIds: string[];
+  distanceM: number;
+  durationS: number;
+  /** Ersparnis gegenüber der bisherigen Reihenfolge, in Metern. */
+  savedM: number;
+}
+
+export interface RouteLegDto {
+  /** Null für die Gesamtroute der Reise. */
+  stageId: string | null;
+  stageTitle: string | null;
+  distanceM: number;
+  durationS: number;
+  geometry: string;
+  cached: boolean;
+}
+
+export interface TripRouteDto {
+  tripId: string;
+  profile: string;
+  /** Eine Etappe pro Eintrag; ohne Etappen genau ein Eintrag. */
+  legs: RouteLegDto[];
+  totalDistanceM: number;
+  totalDurationS: number;
+  bbox: [number, number, number, number] | null;
+  /** Hinweise, etwa wenn keine Fahrzeugmaße hinterlegt sind. */
+  notes: string[];
+}
+
 export interface PhotoDto {
   id: string;
   spotId: string | null;
@@ -167,6 +199,74 @@ export interface ExpenseDto {
   amount: number;
   currency: string;
   note: string | null;
+}
+
+/** Auswertung einer Reise: Kosten, Strecke und Verbrauch. */
+export interface TripStatsDto {
+  tripId: string;
+  /** Aus den Kilometerständen von Tagebuch und Tankungen. */
+  distanceKm: number | null;
+  fuelLiters: number;
+  fuelCost: number;
+  /** Nur aus aufeinanderfolgenden Volltankungen berechenbar. */
+  consumptionL100km: number | null;
+  expensesByCategory: { category: ExpenseCategory; amount: number }[];
+  otherCost: number;
+  totalCost: number;
+  costPerDay: number | null;
+  costPerKm: number | null;
+  nights: number;
+  spotCount: number;
+  averageRating: number | null;
+  averagePricePerNight: number | null;
+}
+
+export interface ShareLinkDto {
+  id: string;
+  token: string;
+  /** Vollständige URL zum Weitergeben. */
+  url: string;
+  expiresAt: string | null;
+  includePhotos: boolean;
+  revokedAt: string | null;
+  createdAt: string;
+}
+
+/** Was ein öffentlicher Link ausliefert – ohne private Notizen. */
+export interface PublicTripDto {
+  title: string;
+  description: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  ownerName: string;
+  includePhotos: boolean;
+  waypoints: {
+    seq: number;
+    kind: WaypointKind;
+    name: string;
+    lat: number;
+    lon: number;
+  }[];
+  spots: {
+    id: string;
+    name: string;
+    lat: number;
+    lon: number;
+    type: SpotType;
+    visitedAt: string | null;
+    rating: number | null;
+    pricePerNight: number | null;
+    notes: string | null;
+    amenities: Amenity[];
+    photoIds: string[];
+  }[];
+}
+
+export interface ImportResultDto {
+  imported: number;
+  skipped: number;
+  /** Verständliche Hinweise zu übersprungenen Einträgen. */
+  messages: string[];
 }
 
 export interface GeocodeResultDto {

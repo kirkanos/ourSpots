@@ -300,8 +300,21 @@ API-Start automatisch (`prisma migrate deploy`).
 | 2 Auth (OIDC/BFF gegen Authelia) | fertig |
 | 3 Reisen, Stellplätze, Karte, Suche und Filter | fertig |
 | 4 Mobile Erfassung, Foto-Pipeline | fertig (vorgezogen) |
-| 5 Routing über OpenRouteService | offen |
-| 6 PWA und Offline-Erfassung | offen |
-| 7 Tagebuch und Kosten | offen |
-| 8 Teilen-Links, Import/Export | offen |
-| 9 Feinschliff | offen |
+| 5 Routing über OpenRouteService | fertig (gegen echte ORS-Antworten noch ungeprüft, siehe unten) |
+| 6 PWA und Offline-Erfassung | fertig |
+| 7 Tagebuch und Kosten | fertig |
+| 8 Teilen-Links, Import/Export | fertig |
+| 9 Feinschliff, lokale Entwicklungsumgebung | fertig |
+
+## 15. Offener Punkt: Routing ungeprüft
+
+Die Anbindung an OpenRouteService ist vollständig gebaut – Anfrageaufbau,
+HGV-Profil mit Fahrzeugmaßen, Etappen, Optimierung, Cache und Fehlerbehandlung –
+aber mangels Schlüssel noch nie gegen den echten Dienst gelaufen. Alles andere in
+dieser Liste wurde end-to-end geprüft.
+
+Zum Nachholen: kostenlosen Schlüssel auf openrouteservice.org holen, als
+`ORS_API_KEY` eintragen, API neu starten und in einer Reise „Route berechnen"
+drücken. Zu erwarten sind Distanz, Fahrzeit und eine Linie entlang der Straßen;
+bei hinterlegten Fahrzeugmaßen weist die Oberfläche das Profil als „mit
+Wohnmobil-Maßen" aus.

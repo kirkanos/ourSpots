@@ -13,6 +13,7 @@ import type { User } from '@prisma/client';
 import {
   tripInputSchema,
   tripMemberInputSchema,
+  stageBulkSchema,
   waypointBulkSchema,
   type StageDto,
   type TripDto,
@@ -92,6 +93,15 @@ export class TripsController {
   @Get(':id/stages')
   stages(@Param('id') id: string, @CurrentUser() user: User): Promise<StageDto[]> {
     return this.trips.listStages(id, user.id);
+  }
+
+  @Put(':id/stages')
+  replaceStages(
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(stageBulkSchema)) body: { stages: unknown[] },
+    @CurrentUser() user: User,
+  ): Promise<StageDto[]> {
+    return this.trips.replaceStages(id, user.id, body.stages as never);
   }
 
   @Get(':id/waypoints')

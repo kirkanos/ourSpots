@@ -1,10 +1,11 @@
 import { Logger, Module, OnApplicationBootstrap } from '@nestjs/common';
 import { AuthController } from './auth.controller';
+import { DevLoginController } from './dev-login.controller';
 import { OidcService } from './oidc.service';
 import { SessionService } from './session.service';
 
 @Module({
-  controllers: [AuthController],
+  controllers: [AuthController, DevLoginController],
   providers: [OidcService, SessionService],
   exports: [SessionService],
 })

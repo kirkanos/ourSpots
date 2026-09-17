@@ -8,6 +8,11 @@ import { TripsModule } from './trips/trips.module';
 import { SpotsModule } from './spots/spots.module';
 import { PhotosModule } from './photos/photos.module';
 import { GeocodeModule } from './geocode/geocode.module';
+import { JournalModule } from './journal/journal.module';
+import { RoutingModule } from './routing/routing.module';
+import { ShareModule } from './share/share.module';
+import { TransferModule } from './transfer/transfer.module';
+import { VehiclesModule } from './vehicles/vehicles.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -19,6 +24,11 @@ import { HealthController } from './health.controller';
     SpotsModule,
     PhotosModule,
     GeocodeModule,
+    JournalModule,
+    RoutingModule,
+    ShareModule,
+    TransferModule,
+    VehiclesModule,
   ],
   controllers: [HealthController],
   providers: [

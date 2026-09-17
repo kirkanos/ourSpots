@@ -18,6 +18,15 @@ const envSchema = z.object({
   OIDC_SCOPES: z.string().default('openid profile email'),
 
   SESSION_SECRET: z.string().min(32, 'SESSION_SECRET muss mindestens 32 Zeichen haben'),
+
+  /**
+   * Nur fuer die lokale Entwicklung: erlaubt eine Anmeldung ohne Authelia.
+   * Zusammen mit NODE_ENV=production verweigert die App den Start.
+   */
+  DEV_LOGIN: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
   SESSION_TTL_DAYS: z.coerce.number().int().min(1).max(365).default(30),
 
   ORS_API_KEY: z.string().default(''),
@@ -51,6 +60,15 @@ export function loadConfig(): AppConfig {
   }
 
   const env = parsed.data;
+
+  if (env.DEV_LOGIN && env.NODE_ENV === 'production') {
+    // Lieber gar nicht starten als mit einer offenen Hintertuer laufen.
+    throw new Error(
+      'DEV_LOGIN=true ist im Produktivbetrieb nicht erlaubt. ' +
+        'Entferne die Variable oder setze NODE_ENV auf einen anderen Wert.',
+    );
+  }
+
   cached = {
     ...env,
     isProduction: env.NODE_ENV === 'production',

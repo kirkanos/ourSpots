@@ -1,10 +1,14 @@
-import { NavLink, Outlet } from 'react-router-dom';
+import { Link, NavLink, Outlet } from 'react-router-dom';
 import { api } from '../api/client';
 import { useMe } from '../api/hooks';
 import { IconList, IconLogo, IconMap, IconPlus, IconRoute } from './Icons';
+import { flushOutbox } from '../offline/outbox';
+import { useOnline, useOutbox } from '../offline/useOutbox';
 
 export function Layout() {
   const me = useMe();
+  const online = useOnline();
+  const outbox = useOutbox();
 
   const logout = async () => {
     const result = await api<{ endSessionUrl: string | null }>('/auth/logout', { method: 'POST' });
@@ -21,6 +25,9 @@ export function Layout() {
           WoMoPlaner
         </NavLink>
         <div className="app__spacer" />
+        <Link to="/einstellungen" className="btn btn--ghost btn--small">
+          Einstellungen
+        </Link>
         {me.data && (
           <div className="row small">
             <span className="muted truncate" style={{ maxWidth: '10rem' }}>
@@ -51,6 +58,31 @@ export function Layout() {
           Erfassen
         </NavLink>
       </nav>
+
+      {(!online || outbox.pending > 0 || outbox.failed > 0) && (
+        <div className="statusbar" role="status">
+          {!online && <span>Kein Netz – Erfasstes wird gespeichert und später übertragen.</span>}
+          {outbox.pending > 0 && (
+            <span>
+              {outbox.pending} {outbox.pending === 1 ? 'Änderung wartet' : 'Änderungen warten'} auf
+              Übertragung.
+            </span>
+          )}
+          {outbox.failed > 0 && (
+            <Link to="/einstellungen">{outbox.failed} abgelehnt – ansehen</Link>
+          )}
+          {online && outbox.pending > 0 && (
+            <button
+              type="button"
+              className="btn btn--ghost btn--small"
+              onClick={() => void flushOutbox()}
+              disabled={outbox.syncing}
+            >
+              {outbox.syncing ? 'Wird übertragen …' : 'Jetzt übertragen'}
+            </button>
+          )}
+        </div>
+      )}
 
       <main className="app__main">
         <Outlet />

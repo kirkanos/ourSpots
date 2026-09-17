@@ -1,14 +1,13 @@
-import { useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
-import { Marker, Polyline } from 'react-leaflet';
+import { useState } from 'react';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Marker } from 'react-leaflet';
 import {
   TRIP_STATUSES,
   TRIP_STATUS_LABELS,
   tripInputSchema,
+  type TripDto,
   type TripInput,
   type TripStatus,
-  type WaypointDto,
-  type WaypointInput,
 } from '@womo/shared';
 import {
   useAddTripMember,
@@ -16,30 +15,53 @@ import {
   useMe,
   useRemoveTripMember,
   useSaveTrip,
-  useSaveWaypoints,
   useSpots,
   useTrip,
-  useWaypoints,
+  useVehicles,
 } from '../api/hooks';
 import { BaseMap } from '../components/map/BaseMap';
-import { spotIcon, waypointIcon } from '../components/map/markerIcons';
-import { LocationField } from '../components/LocationField';
+import { spotIcon } from '../components/map/markerIcons';
+import { RoutePlanner } from '../components/trip/RoutePlanner';
+import { TripJournal } from '../components/trip/TripJournal';
+import { TripStats } from '../components/trip/TripStats';
+import { SharePanel } from '../components/trip/SharePanel';
 import { ErrorState, Loading } from '../components/States';
 import { IconPlus, IconTrash } from '../components/Icons';
 import { formatDate, formatDateRange } from '../lib/format';
 
+const TABS = [
+  { key: 'route', label: 'Route' },
+  { key: 'plaetze', label: 'Stellplätze' },
+  { key: 'tagebuch', label: 'Tagebuch' },
+  { key: 'kosten', label: 'Kosten' },
+  { key: 'teilen', label: 'Teilen' },
+] as const;
+
+type TabKey = (typeof TABS)[number]['key'];
+
 export function TripDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [params, setParams] = useSearchParams();
   const trip = useTrip(id);
   const me = useMe();
 
+  const tab = (params.get('tab') as TabKey | null) ?? 'route';
+
   if (trip.isPending) return <Loading />;
-  if (trip.error) return <div className="page"><ErrorState error={trip.error} /></div>;
+  if (trip.error) {
+    return (
+      <div className="page">
+        <ErrorState error={trip.error} />
+      </div>
+    );
+  }
   if (!trip.data || !id) return null;
 
   const canEdit = trip.data.myRole !== 'viewer';
   const isOwner = trip.data.myRole === 'owner';
+  // Teilen-Links darf nur der Eigentümer verwalten.
+  const visibleTabs = TABS.filter((entry) => entry.key !== 'teilen' || isOwner);
 
   return (
     <div className="page stack">
@@ -47,20 +69,46 @@ export function TripDetailPage() {
         <div>
           <h1 style={{ marginBottom: '0.25rem' }}>{trip.data.title}</h1>
           <div className="row small muted">
-            <span className="badge">{TRIP_STATUS_LABELS[trip.data.status]}</span>
+            <span className={`badge${trip.data.status === 'active' ? ' badge--accent' : ''}`}>
+              {TRIP_STATUS_LABELS[trip.data.status]}
+            </span>
             <span>{formatDateRange(trip.data.startDate, trip.data.endDate)}</span>
+            {trip.data.myRole !== 'owner' && <span className="badge">geteilt mit dir</span>}
           </div>
         </div>
-        {isOwner && <DeleteTripButton tripId={id} title={trip.data.title} onDeleted={() => navigate('/reisen')} />}
+        {isOwner && (
+          <DeleteTripButton tripId={id} title={trip.data.title} onDeleted={() => navigate('/reisen')} />
+        )}
       </div>
+
+      {trip.data.description && <p className="muted">{trip.data.description}</p>}
 
       {canEdit && <TripSettings tripId={id} trip={trip.data} />}
 
-      <RoutePlanner tripId={id} canEdit={canEdit} />
+      <div className="tabs" role="tablist">
+        {visibleTabs.map((entry) => (
+          <button
+            key={entry.key}
+            type="button"
+            role="tab"
+            aria-selected={tab === entry.key}
+            className="tabs__tab"
+            onClick={() => setParams({ tab: entry.key }, { replace: true })}
+          >
+            {entry.label}
+          </button>
+        ))}
+      </div>
 
-      <TripSpots tripId={id} />
+      {tab === 'route' && <RoutePlanner tripId={id} canEdit={canEdit} />}
+      {tab === 'plaetze' && <TripSpots tripId={id} />}
+      {tab === 'tagebuch' && <TripJournal tripId={id} canEdit={canEdit} />}
+      {tab === 'kosten' && <TripStats tripId={id} />}
+      {tab === 'teilen' && isOwner && <SharePanel tripId={id} />}
 
-      {isOwner && <MemberSettings tripId={id} members={trip.data.members ?? []} meId={me.data?.id} />}
+      {isOwner && tab === 'teilen' && (
+        <MemberSettings tripId={id} members={trip.data.members ?? []} meId={me.data?.id} />
+      )}
     </div>
   );
 }
@@ -91,8 +139,9 @@ function DeleteTripButton({
   );
 }
 
-function TripSettings({ tripId, trip }: { tripId: string; trip: { title: string; description: string | null; startDate: string | null; endDate: string | null; status: TripStatus } }) {
+function TripSettings({ tripId, trip }: { tripId: string; trip: TripDto }) {
   const save = useSaveTrip();
+  const vehicles = useVehicles();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<TripInput>({
     title: trip.title,
@@ -100,7 +149,7 @@ function TripSettings({ tripId, trip }: { tripId: string; trip: { title: string;
     startDate: trip.startDate,
     endDate: trip.endDate,
     status: trip.status,
-    vehicleId: null,
+    vehicleId: trip.vehicleId,
   });
   const [issue, setIssue] = useState<string | null>(null);
 
@@ -116,10 +165,15 @@ function TripSettings({ tripId, trip }: { tripId: string; trip: { title: string;
 
   if (!open) {
     return (
-      <div>
+      <div className="row">
         <button type="button" className="btn btn--ghost btn--small" onClick={() => setOpen(true)}>
           Reisedaten bearbeiten
         </button>
+        {trip.vehicleId && vehicles.data && (
+          <span className="badge">
+            {vehicles.data.find((v) => v.id === trip.vehicleId)?.name ?? 'Fahrzeug'}
+          </span>
+        )}
       </div>
     );
   }
@@ -150,20 +204,39 @@ function TripSettings({ tripId, trip }: { tripId: string; trip: { title: string;
             onChange={(e) => setForm({ ...form, endDate: e.target.value || null })}
           />
         </div>
-      </div>
-      <div className="field">
-        <label htmlFor="edit-status">Status</label>
-        <select
-          id="edit-status"
-          value={form.status}
-          onChange={(e) => setForm({ ...form, status: e.target.value as TripStatus })}
-        >
-          {TRIP_STATUSES.map((status) => (
-            <option key={status} value={status}>
-              {TRIP_STATUS_LABELS[status]}
-            </option>
-          ))}
-        </select>
+        <div className="field">
+          <label htmlFor="edit-status">Status</label>
+          <select
+            id="edit-status"
+            value={form.status}
+            onChange={(e) => setForm({ ...form, status: e.target.value as TripStatus })}
+          >
+            {TRIP_STATUSES.map((status) => (
+              <option key={status} value={status}>
+                {TRIP_STATUS_LABELS[status]}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="field">
+          <label htmlFor="edit-vehicle">Fahrzeug</label>
+          <select
+            id="edit-vehicle"
+            value={form.vehicleId ?? ''}
+            onChange={(e) => setForm({ ...form, vehicleId: e.target.value || null })}
+          >
+            <option value="">Kein Fahrzeug</option>
+            {vehicles.data?.map((vehicle) => (
+              <option key={vehicle.id} value={vehicle.id}>
+                {vehicle.name}
+              </option>
+            ))}
+          </select>
+          <div className="field__hint">
+            Die Maße des Fahrzeugs fließen in die Routenberechnung ein. Anlegen unter{' '}
+            <Link to="/einstellungen">Einstellungen</Link>.
+          </div>
+        </div>
       </div>
       <div className="field">
         <label htmlFor="edit-description">Beschreibung</label>
@@ -187,242 +260,6 @@ function TripSettings({ tripId, trip }: { tripId: string; trip: { title: string;
   );
 }
 
-// ---------------------------------------------------------------------------
-
-function RoutePlanner({ tripId, canEdit }: { tripId: string; canEdit: boolean }) {
-  const stored = useWaypoints(tripId);
-  const save = useSaveWaypoints(tripId);
-  const [draft, setDraft] = useState<WaypointInput[]>([]);
-  const [dirty, setDirty] = useState(false);
-  const [adding, setAdding] = useState(false);
-
-  useEffect(() => {
-    if (stored.data && !dirty) setDraft(stored.data.map(toInput));
-  }, [stored.data, dirty]);
-
-  const move = (index: number, delta: number) => {
-    const next = [...draft];
-    const target = index + delta;
-    const a = next[index];
-    const b = next[target];
-    if (!a || !b) return;
-    next[index] = b;
-    next[target] = a;
-    setDraft(next.map((wp, i) => ({ ...wp, seq: i, kind: kindFor(i, next.length) })));
-    setDirty(true);
-  };
-
-  const removeAt = (index: number) => {
-    const next = draft.filter((_, i) => i !== index);
-    setDraft(next.map((wp, i) => ({ ...wp, seq: i, kind: kindFor(i, next.length) })));
-    setDirty(true);
-  };
-
-  const add = (value: { name: string; lat: number; lon: number; address: string | null }) => {
-    const next = [...draft, { ...value, seq: draft.length, kind: 'via' as const, locked: false }];
-    setDraft(next.map((wp, i) => ({ ...wp, seq: i, kind: kindFor(i, next.length) })));
-    setDirty(true);
-    setAdding(false);
-  };
-
-  const line = draft.map((wp) => [wp.lat, wp.lon] as [number, number]);
-
-  return (
-    <div className="card stack">
-      <div className="row row--between">
-        <h2>Route und Zwischenziele</h2>
-        {canEdit && (
-          <button type="button" className="btn btn--ghost btn--small" onClick={() => setAdding((v) => !v)}>
-            <IconPlus />
-            Ziel hinzufügen
-          </button>
-        )}
-      </div>
-
-      {stored.isPending && <Loading />}
-
-      {draft.length > 0 && (
-        <div style={{ height: '260px', borderRadius: 'var(--radius-sm)', overflow: 'hidden' }}>
-          <BaseMap
-            center={line[0]}
-            zoom={7}
-            bounds={line.length > 1 ? line : undefined}
-          >
-            {draft.map((wp, index) => (
-              <Marker
-                key={`${wp.lat},${wp.lon},${index}`}
-                position={[wp.lat, wp.lon]}
-                icon={waypointIcon(index + 1, wp.kind ?? 'via')}
-              />
-            ))}
-            {line.length > 1 && (
-              // Vorläufige Verbindung der Ziele. Die echte Straßenroute über
-              // OpenRouteService kommt im nächsten Schritt hinzu.
-              <Polyline positions={line} pathOptions={{ color: '#1f6f5c', weight: 3, dashArray: '6 8' }} />
-            )}
-          </BaseMap>
-        </div>
-      )}
-
-      {draft.length > 1 && (
-        <p className="small muted">
-          Die gestrichelte Linie verbindet die Ziele vorläufig direkt. Die Berechnung der
-          tatsächlichen Straßenroute mit Wohnmobil-Maßen folgt im nächsten Ausbauschritt.
-        </p>
-      )}
-
-      {adding && (
-        <WaypointAdder onAdd={add} onCancel={() => setAdding(false)} />
-      )}
-
-      {draft.length === 0 && !adding && (
-        <p className="muted">
-          Noch keine Ziele. Füge Start, Zwischenziele und Ziel hinzu – die Reihenfolge lässt sich
-          danach ändern.
-        </p>
-      )}
-
-      <ol className="stack" style={{ paddingLeft: '1.2rem', margin: 0 }}>
-        {draft.map((wp, index) => (
-          <li key={`${wp.lat},${wp.lon},${index}`}>
-            <div className="row row--between">
-              <div style={{ minWidth: 0 }}>
-                <div className="truncate">
-                  <strong>{wp.name}</strong>{' '}
-                  <span className="badge">
-                    {wp.kind === 'start' ? 'Start' : wp.kind === 'end' ? 'Ziel' : 'Zwischenziel'}
-                  </span>
-                </div>
-                {wp.address && <div className="small muted truncate">{wp.address}</div>}
-              </div>
-              {canEdit && (
-                <div className="row">
-                  <button
-                    type="button"
-                    className="btn btn--ghost btn--small"
-                    aria-label="Nach oben"
-                    disabled={index === 0}
-                    onClick={() => move(index, -1)}
-                  >
-                    ↑
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn--ghost btn--small"
-                    aria-label="Nach unten"
-                    disabled={index === draft.length - 1}
-                    onClick={() => move(index, 1)}
-                  >
-                    ↓
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn--danger btn--small"
-                    aria-label="Ziel entfernen"
-                    onClick={() => removeAt(index)}
-                  >
-                    <IconTrash />
-                  </button>
-                </div>
-              )}
-            </div>
-          </li>
-        ))}
-      </ol>
-
-      {canEdit && dirty && (
-        <div className="row">
-          <button
-            type="button"
-            className="btn"
-            disabled={save.isPending}
-            onClick={() =>
-              save.mutate(draft, {
-                onSuccess: () => setDirty(false),
-              })
-            }
-          >
-            {save.isPending ? 'Wird gespeichert …' : 'Reihenfolge speichern'}
-          </button>
-          <button
-            type="button"
-            className="btn btn--ghost"
-            onClick={() => {
-              setDraft((stored.data ?? []).map(toInput));
-              setDirty(false);
-            }}
-          >
-            Verwerfen
-          </button>
-        </div>
-      )}
-      {save.error && <ErrorState error={save.error} />}
-    </div>
-  );
-}
-
-function WaypointAdder({
-  onAdd,
-  onCancel,
-}: {
-  onAdd: (value: { name: string; lat: number; lon: number; address: string | null }) => void;
-  onCancel: () => void;
-}) {
-  const [name, setName] = useState('');
-  const [position, setPosition] = useState<{ lat: number; lon: number; address: string | null } | null>(null);
-
-  return (
-    <div className="card stack" style={{ background: 'var(--surface-alt)' }}>
-      <div className="field">
-        <label htmlFor="wp-name">Bezeichnung</label>
-        <input
-          id="wp-name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="z. B. Fähre Dagebüll"
-        />
-      </div>
-      <LocationField
-        lat={position?.lat ?? null}
-        lon={position?.lon ?? null}
-        address={position?.address ?? null}
-        onChange={(value) =>
-          setPosition((prev) => ({
-            lat: value.lat,
-            lon: value.lon,
-            address: value.address !== undefined ? value.address : (prev?.address ?? null),
-          }))
-        }
-      />
-      <div className="row">
-        <button
-          type="button"
-          className="btn"
-          disabled={!position}
-          onClick={() => {
-            if (!position) return;
-            onAdd({
-              name: name.trim() || position.address?.split(',')[0]?.trim() || 'Zwischenziel',
-              lat: position.lat,
-              lon: position.lon,
-              address: position.address,
-            });
-            setName('');
-            setPosition(null);
-          }}
-        >
-          Übernehmen
-        </button>
-        <button type="button" className="btn btn--ghost" onClick={onCancel}>
-          Abbrechen
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-
 function TripSpots({ tripId }: { tripId: string }) {
   const spots = useSpots({ tripId, limit: 200, sort: 'visitedAt', order: 'asc' });
   const items = spots.data?.items ?? [];
@@ -443,7 +280,7 @@ function TripSpots({ tripId }: { tripId: string }) {
       )}
 
       {items.length > 0 && (
-        <div style={{ height: '240px', borderRadius: 'var(--radius-sm)', overflow: 'hidden' }}>
+        <div className="map-embed">
           <BaseMap bounds={items.map((s) => [s.lat, s.lon] as [number, number])}>
             {items.map((spot) => (
               <Marker key={spot.id} position={[spot.lat, spot.lon]} icon={spotIcon(spot.type, spot.rating)} />
@@ -465,8 +302,6 @@ function TripSpots({ tripId }: { tripId: string }) {
     </div>
   );
 }
-
-// ---------------------------------------------------------------------------
 
 function MemberSettings({
   tripId,
@@ -495,7 +330,11 @@ function MemberSettings({
             </span>
             <span className="row">
               <span className="badge">
-                {member.role === 'owner' ? 'Eigentümer' : member.role === 'editor' ? 'darf bearbeiten' : 'nur lesen'}
+                {member.role === 'owner'
+                  ? 'Eigentümer'
+                  : member.role === 'editor'
+                    ? 'darf bearbeiten'
+                    : 'nur lesen'}
               </span>
               {member.role !== 'owner' && (
                 <button
@@ -549,29 +388,4 @@ function MemberSettings({
       </div>
     </div>
   );
-}
-
-// ---------------------------------------------------------------------------
-
-function toInput(wp: WaypointDto): WaypointInput {
-  return {
-    id: wp.id,
-    stageId: wp.stageId,
-    seq: wp.seq,
-    kind: wp.kind,
-    name: wp.name,
-    lat: wp.lat,
-    lon: wp.lon,
-    address: wp.address,
-    plannedArrival: wp.plannedArrival,
-    plannedNights: wp.plannedNights,
-    locked: wp.locked,
-  };
-}
-
-/** Erster Punkt ist Start, letzter ist Ziel, alles dazwischen Zwischenziel. */
-function kindFor(index: number, total: number): 'start' | 'via' | 'end' {
-  if (index === 0) return 'start';
-  if (index === total - 1) return 'end';
-  return 'via';
 }

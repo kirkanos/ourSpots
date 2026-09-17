@@ -3,67 +3,84 @@
 Wohnmobil-Reisen planen, Stellplätze unterwegs erfassen und später wiederfinden.
 Läuft selbst gehostet unter `https://travel.kirkanos.net`, Anmeldung über Authelia (OIDC).
 
-Das ausführliche Konzept steht in [docs/KONZEPT.md](docs/KONZEPT.md), die
-Inbetriebnahme in [docs/DEPLOY.md](docs/DEPLOY.md).
+| Dokument | Inhalt |
+|---|---|
+| [docs/KONZEPT.md](docs/KONZEPT.md) | Datenmodell, Architektur, getroffene Entscheidungen |
+| [docs/DEPLOY.md](docs/DEPLOY.md) | Authelia-Client, Konfiguration, Reverse Proxy, Backup |
+| [docs/ENTWICKLUNG.md](docs/ENTWICKLUNG.md) | Lokale Umgebung mit Beispieldaten, ohne Authelia |
 
-## Was heute funktioniert
+## Was die App kann
 
-- **Anmeldung** über Authelia per Authorization Code + PKCE. Das Backend führt den
-  Flow durch und setzt ein httpOnly-Session-Cookie – im Browser liegt nie ein Token.
-- **Reisen** anlegen, bearbeiten, löschen; Zeitraum, Status und Beschreibung.
-- **Reisen teilen**: Mitreisende per E-Mail hinzufügen, mit Rolle `darf bearbeiten`
-  oder `nur lesen`. Rechte werden serverseitig bei jedem Zugriff geprüft.
-- **Zwischenziele** je Reise anlegen, sortieren und löschen; Karte mit nummerierten
-  Punkten. Die tatsächliche Straßenroute folgt im nächsten Schritt.
-- **Stellplätze** anlegen und bearbeiten – über die Karte, die Adresssuche oder den
-  aktuellen Standort. Mit Art, Bewertung, Preis, Nächten, Ausstattung und Notizen.
-- **Schnellerfassung** „Hier bin ich“: Standort, Name, Bewertung und Fotos in einem
-  Rutsch, für unterwegs gedacht.
-- **Fotos** hochladen; der Server dreht sie nach EXIF, skaliert sie in drei Größen als
-  WebP und liest Aufnahmezeit und GPS aus. Ausgeliefert wird nur mit Zugriffsprüfung.
-- **Karte** mit Clustern über alle Stellplätze, **Liste** mit Volltextsuche und Filtern
-  nach Art, Bewertung, Preis, Ausstattung und Reise, dazu Umkreissuche.
+**Reisen planen**
+- Reisen mit Zeitraum, Status, Beschreibung und zugeordnetem Fahrzeug
+- Zwischenziele per Karte, Adresssuche oder GPS; sortierbar, einzelne Ziele festpinnbar
+- Etappen: die Reise in Tagesabschnitte zerlegen, jeder mit eigener Route
+- **Straßenroute** über OpenRouteService – mit den Maßen des Wohnmobils, also ohne
+  Wege unter zu niedrigen Brücken oder über gesperrte Straßen
+- Reihenfolge der Zwischenziele optimieren lassen (Vorschlag, der erst auf
+  Bestätigung übernommen wird)
+- Berechnete Routen werden zwischengespeichert; unveränderte Routen kosten kein
+  API-Kontingent
+- Export als GPX oder KML
 
-## Noch nicht gebaut
+**Stellplätze sammeln**
+- Anlegen über Karte, Adresssuche oder aktuellen Standort
+- Art, Bewertung, Preis, Nächte, Ausstattung (18 Merkmale) und Notizen
+- Notizen einzeln als privat markierbar – die verlassen die App nie
+- Schnellerfassung „Hier bin ich": Standort, Name, Bewertung, Fotos in einem Zug
+- Fotos mit EXIF-Auswertung, serverseitig in drei WebP-Größen, ausgeliefert nur
+  nach Zugriffsprüfung
+- Karte mit Clustern, Liste mit Volltextsuche, Filtern und Umkreissuche
+- Import aus GPX, KML und CSV, mit Erkennung bereits vorhandener Punkte
 
-Schritt 5 bis 9 aus dem Konzept: Straßenrouting über OpenRouteService mit
-Wohnmobil-Maßen, PWA mit Offline-Erfassung, Reisetagebuch mit Kilometer- und
-Kostenauswertung, öffentliche Teilen-Links sowie GPX/KML-Import und -Export.
+**Unterwegs**
+- Als PWA installierbar
+- Offline erfasste Stellplätze und Fotos warten lokal und gehen los, sobald wieder
+  Verbindung besteht; die Oberfläche zeigt, wie viel noch aussteht
+- Kartenausschnitte lassen sich für die Offline-Nutzung vorladen
+
+**Festhalten und auswerten**
+- Reisetagebuch mit Kilometerstand und Wetter
+- Tankungen; Verbrauch wird aus aufeinanderfolgenden Volltankungen berechnet
+- Ausgaben nach Kategorien, mit Auswertung je Reise: Gesamtkosten, Kosten pro Tag
+  und pro Kilometer, Durchschnittsbewertung und -stellplatzpreis
+
+**Teilen**
+- Reisen für Mitreisende freigeben, mit „darf bearbeiten" oder „nur lesen"
+- Öffentlicher Link zu einer Reise für Leute ohne Konto, wahlweise mit Fotos,
+  jederzeit widerrufbar
 
 ## Aufbau
 
 ```
-apps/api        NestJS + Prisma (MariaDB), OIDC, Fotos, Geocoding-Proxy
-apps/web        React + Vite, Leaflet, TanStack Query
+apps/api        NestJS + Prisma (MariaDB), OIDC, Fotos, Routing, Geocoding
+apps/web        React + Vite, Leaflet, TanStack Query, Dexie, Service Worker
 packages/shared Zod-Schemas und Typen, von beiden Seiten genutzt
-docker/         Dockerfiles und nginx-Konfiguration
+docker/         Dockerfiles, nginx-Konfiguration, Init-SQL für die Entwicklung
 ```
 
 Die Schemas in `packages/shared` sind die einzige Quelle für die Validierung: das
 Frontend prüft damit seine Formulare, das Backend dieselben Daten noch einmal.
+IDs sind client-seitig erzeugte UUIDv7 und alle Schreibzugriffe laufen über PUT –
+das ist die Grundlage dafür, dass die Offline-Warteschlange gefahrlos erneut
+zustellen darf.
 
-## Entwicklung
+## Schnellstart
 
 ```bash
-cp .env.example .env          # Werte eintragen
-npm install
-npm run build -w @womo/shared
+# Lokal entwickeln (ohne Authelia, mit Beispieldaten)
+cp .env.development.example .env.development
+npm install && npm run dev:db && npm run db:migrate && npm run db:seed && npm run dev
 
-docker compose up -d db       # nur die Datenbank
-npm run db:migrate -w @womo/api
-
-npm run dev:api               # http://localhost:3000
-npm run dev:web               # http://localhost:5173 (proxyt /api)
+# Vollständiger Stack wie im Betrieb
+cp .env.example .env     # Werte eintragen
+docker compose up -d --build
 ```
-
-Für einen vollständigen Durchlauf inklusive nginx: `docker compose up -d --build`.
-
-## Nützliche Befehle
 
 | Zweck | Befehl |
 |---|---|
 | Alles typprüfen | `npm run typecheck` |
-| Migration erzeugen | `npm run db:migrate -w @womo/api -- --name <beschreibung>` |
-| Datenbank ansehen | `npm run db:studio -w @womo/api` |
+| Datenbank ansehen | `npm run db:studio` |
+| Lokale Datenbank neu aufbauen | `npm run dev:reset` |
 | Stack neu bauen | `docker compose up -d --build` |
-| Alles inkl. Daten löschen | `docker compose down -v` |
+| Alles inklusive Daten löschen | `docker compose down -v` |

@@ -1,0 +1,35 @@
+# Nur die Datenbank – API und Web laufen beim Entwickeln direkt auf dem Rechner
+# (npm run dev), damit Änderungen ohne Container-Neubau sichtbar werden.
+#
+#   docker compose -f docker-compose.dev.yml up -d
+#
+# Eigener Projektname: sonst ersetzt diese Datenbank den Container des vollen
+# Stacks aus docker-compose.yml, weil Compose sonst beide "womoplaner" nennt.
+name: womoplaner-dev
+
+services:
+  db:
+    image: mariadb:11
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: womoplaner
+      MARIADB_USER: womoplaner
+      MARIADB_PASSWORD: womoplaner
+      MARIADB_ROOT_PASSWORD: womoplaner
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    ports:
+      # Nur auf dem eigenen Rechner erreichbar.
+      - "127.0.0.1:3307:3306"
+    volumes:
+      - dev_db_data:/var/lib/mysql
+      - ./docker/dev/init.sql:/docker-entrypoint-initdb.d/10-shadow-db-grant.sql:ro
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  dev_db_data:

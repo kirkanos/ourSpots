@@ -10,3 +10,4 @@ apps/web/dev-dist/
 apps/api/prisma/*.db
 .vite/
 coverage/
+.env.development

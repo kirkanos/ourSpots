@@ -35,6 +35,24 @@ export function todayIso(): string {
   return new Date(now.getTime() - offset).toISOString().slice(0, 10);
 }
 
+/** Fahrzeit als „4 h 20 min“ – Sekunden interessieren beim Planen nicht. */
+export function formatDuration(seconds: number): string {
+  const total = Math.round(seconds / 60);
+  const hours = Math.floor(total / 60);
+  const minutes = total % 60;
+  if (hours === 0) return `${minutes} min`;
+  return minutes === 0 ? `${hours} h` : `${hours} h ${minutes} min`;
+}
+
+export function formatKm(meters: number): string {
+  const km = meters / 1000;
+  return km < 10 ? `${km.toFixed(1)} km` : `${Math.round(km).toLocaleString('de-DE')} km`;
+}
+
+export function formatLiters(liters: number): string {
+  return `${liters.toLocaleString('de-DE', { maximumFractionDigits: 1 })} l`;
+}
+
 export function formatCoords(lat: number, lon: number): string {
   return `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
 }

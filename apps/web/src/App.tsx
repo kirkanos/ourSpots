@@ -8,8 +8,20 @@ import { SpotEditPage } from './pages/SpotEditPage';
 import { CapturePage } from './pages/CapturePage';
 import { TripsPage } from './pages/TripsPage';
 import { TripDetailPage } from './pages/TripDetailPage';
+import { SettingsPage } from './pages/SettingsPage';
+import { PublicTripPage } from './pages/PublicTripPage';
 
 export function App() {
+  return (
+    <Routes>
+      {/* Öffentlicher Teilen-Link: bewusst außerhalb der Anmeldeprüfung. */}
+      <Route path="/s/:token" element={<PublicTripPage />} />
+      <Route path="*" element={<AuthenticatedApp />} />
+    </Routes>
+  );
+}
+
+function AuthenticatedApp() {
   return (
     <RequireAuth>
       <Routes>
@@ -23,6 +35,7 @@ export function App() {
           <Route path="erfassen" element={<CapturePage />} />
           <Route path="reisen" element={<TripsPage />} />
           <Route path="reisen/:id" element={<TripDetailPage />} />
+          <Route path="einstellungen" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/karte" replace />} />
         </Route>
       </Routes>
