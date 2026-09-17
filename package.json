@@ -11,7 +11,7 @@
   },
   "scripts": {
     "build": "npm run build -w @womo/shared && npm run build -w @womo/api && npm run build -w @womo/web",
-    "dev": "concurrently -n api,web -c green,cyan \"npm:dev:api\" \"npm:dev:web\"",
+    "dev": "./scripts/dev.sh",
     "dev:api": "npm run dev -w @womo/api",
     "dev:web": "npm run dev -w @womo/web",
     "dev:db": "docker compose -f docker-compose.dev.yml up -d",
@@ -20,7 +20,11 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "db:migrate": "npm run db:migrate -w @womo/api",
     "db:seed": "npm run db:seed -w @womo/api",
-    "db:studio": "npm run db:studio -w @womo/api"
+    "db:studio": "npm run db:studio -w @womo/api",
+    "start": "./scripts/dev.sh",
+    "setup": "./scripts/dev.sh",
+    "dev:servers": "concurrently -n api,web -c green,cyan \"npm:dev:api\" \"npm:dev:web\"",
+    "db:apply": "npm run db:apply -w @womo/api"
   },
   "allowScripts": {
     "prisma@6.19.3": true,
