@@ -9,7 +9,7 @@
 name: ourspots-local
 
 services:
-  db:
+  ourspots-db:
     image: mariadb:11
     restart: unless-stopped
     environment:
@@ -22,10 +22,6 @@ services:
       - --collation-server=utf8mb4_unicode_ci
     volumes:
       - db_data:/var/lib/mysql
-    networks:
-      default:
-        aliases:
-          - ourspots-db
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 10s
@@ -33,13 +29,13 @@ services:
       retries: 12
       start_period: 30s
 
-  api:
+  ourspots-api:
     build:
       context: .
       dockerfile: docker/api/Dockerfile
     restart: unless-stopped
     depends_on:
-      db:
+      ourspots-db:
         condition: service_healthy
     environment:
       NODE_ENV: production
@@ -62,12 +58,8 @@ services:
       LOG_LEVEL: log
     volumes:
       - photo_data:/data/photos
-    networks:
-      default:
-        aliases:
-          - ourspots-api
 
-  web:
+  ourspots-web:
     build:
       context: .
       dockerfile: docker/web/Dockerfile
@@ -76,7 +68,7 @@ services:
         VITE_TILE_ATTRIBUTION: "&copy; OpenStreetMap-Mitwirkende"
     restart: unless-stopped
     depends_on:
-      - api
+      - ourspots-api
     ports:
       - "127.0.0.1:8085:80"
 

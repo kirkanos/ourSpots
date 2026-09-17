@@ -15,13 +15,16 @@ networks:
   # tragen traefik.enable=false.
   #
   # In einem geteilten Netz sind Dienstnamen wie "api" oder "db" nicht mehr
-  # eindeutig, deshalb bekommt jeder Container einen eigenen Alias, und nginx
-  # wie auch die Datenbankverbindung sprechen diesen an.
+  # eindeutig: Compose vergibt den Dienstnamen automatisch als Netz-Alias, und
+  # ein zweites Projekt mit einem Dienst "db" waere unter demselben Namen
+  # erreichbar. Deshalb heissen die Dienste hier selbst schon eindeutig - ein
+  # zusaetzlicher Alias haette den automatischen nicht ersetzt, sondern nur
+  # ergaenzt.
   traefik-network:
     external: true
 
 services:
-  db:
+  ourspots-db:
     image: mariadb:11
     container_name: ${SERVICE}-db
     restart: unless-stopped
@@ -36,9 +39,7 @@ services:
     volumes:
       - db_data:/var/lib/mysql
     networks:
-      traefik-network:
-        aliases:
-          - ourspots-db
+      - traefik-network
     labels:
       - "traefik.enable=false"
     healthcheck:
@@ -48,14 +49,14 @@ services:
       retries: 12
       start_period: 30s
 
-  api:
+  ourspots-api:
     # IMAGE_TAG schreibt die Pipeline beim Ausrollen in die .env – der Server
     # läuft damit auf genau dem Commit, der gerade gebaut wurde.
     image: registry.kirkanos.net/images/ourspots-api:${IMAGE_TAG:-latest}
     container_name: ${SERVICE}-api
     restart: unless-stopped
     depends_on:
-      db:
+      ourspots-db:
         condition: service_healthy
     environment:
       NODE_ENV: production
@@ -81,9 +82,7 @@ services:
     volumes:
       - photo_data:/data/photos
     networks:
-      traefik-network:
-        aliases:
-          - ourspots-api
+      - traefik-network
     labels:
       - "traefik.enable=false"
     security_opt:
@@ -95,12 +94,12 @@ services:
       retries: 5
       start_period: 60s
 
-  web:
+  ourspots-web:
     image: registry.kirkanos.net/images/ourspots-web:${IMAGE_TAG:-latest}
     container_name: ${SERVICE}
     restart: unless-stopped
     depends_on:
-      - api
+      - ourspots-api
     # --- Hardening ---
     read_only: true
     tmpfs:
