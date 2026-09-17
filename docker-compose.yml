@@ -1,0 +1,78 @@
+services:
+  db:
+    image: mariadb:11
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: ${MYSQL_DATABASE}
+      MARIADB_USER: ${MYSQL_USER}
+      MARIADB_PASSWORD: ${MYSQL_PASSWORD}
+      MARIADB_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      # ngram-Tokenizer waere InnoDB/MySQL; MariaDB nutzt den Standard-Parser.
+      - --innodb-ft-min-token-size=2
+      - --ft-min-word-len=2
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/api/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      APP_URL: ${APP_URL}
+      DATABASE_URL: ${DATABASE_URL}
+      OIDC_ISSUER: ${OIDC_ISSUER}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET}
+      OIDC_REDIRECT_URI: ${OIDC_REDIRECT_URI}
+      OIDC_SCOPES: ${OIDC_SCOPES}
+      SESSION_SECRET: ${SESSION_SECRET}
+      SESSION_TTL_DAYS: ${SESSION_TTL_DAYS}
+      ORS_API_KEY: ${ORS_API_KEY}
+      ORS_BASE_URL: ${ORS_BASE_URL}
+      NOMINATIM_URL: ${NOMINATIM_URL}
+      NOMINATIM_USER_AGENT: ${NOMINATIM_USER_AGENT}
+      PHOTO_DIR: /data/photos
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB}
+      LOG_LEVEL: ${LOG_LEVEL}
+    volumes:
+      - photo_data:/data/photos
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/web/Dockerfile
+      args:
+        VITE_TILE_URL: ${TILE_URL}
+        VITE_TILE_ATTRIBUTION: ${TILE_ATTRIBUTION}
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      # Hinter deinem Reverse Proxy: hier nur lokal veroeffentlichen bzw. auf
+      # Traefik-Labels umstellen.
+      - "127.0.0.1:8085:80"
+
+volumes:
+  db_data:
+  photo_data:

@@ -1,0 +1,28 @@
+{
+  "name": "womoplaner",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "npm run build -w @womo/shared && npm run build -w @womo/api && npm run build -w @womo/web",
+    "dev": "npm run dev -w @womo/api & npm run dev -w @womo/web",
+    "dev:api": "npm run dev -w @womo/api",
+    "dev:web": "npm run dev -w @womo/web",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "db:migrate": "npm run db:migrate -w @womo/api",
+    "db:studio": "npm run db:studio -w @womo/api"
+  },
+  "allowScripts": {
+    "prisma@6.19.3": true,
+    "@prisma/client@6.19.3": true,
+    "@prisma/engines@6.19.3": true,
+    "sharp@0.34.5": true,
+    "esbuild@0.25.12": true
+  }
+}

@@ -1,0 +1,312 @@
+// WoMoPlaner – Datenmodell (MariaDB via mysql-Provider)
+//
+// Zwei bewusste Festlegungen:
+//  * IDs sind UUIDv7 als CHAR(36). Sie werden im Client erzeugt, damit offline
+//    angelegte Datensaetze sofort eine stabile Identitaet haben und ein erneut
+//    zugestellter Sync idempotent bleibt (PUT statt POST).
+//  * Koordinaten liegen als DOUBLE vor, nicht als raeumlicher POINT-Typ:
+//    Prisma unterstuetzt Spatial-Typen nicht, und fuer den privaten Umfang
+//    reicht ein Index auf (lat, lon) plus Haversine-Rechnung vollkommen.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String    @id @db.Char(36)
+  oidcSub     String    @unique @db.VarChar(255)
+  email       String?   @db.VarChar(320)
+  displayName String    @db.VarChar(200)
+  avatarUrl   String?   @db.VarChar(1000)
+  createdAt   DateTime  @default(now())
+  lastLoginAt DateTime?
+
+  sessions     Session[]
+  vehicles     Vehicle[]
+  ownedTrips   Trip[]        @relation("TripOwner")
+  memberships  TripMember[]
+  createdSpots Spot[]        @relation("SpotCreator")
+  photos       Photo[]
+  shareLinks   ShareLink[]
+
+  @@index([email])
+}
+
+/// Server-seitige Session des BFF-Flows. Im Browser liegt nur die signierte
+/// Session-ID im httpOnly-Cookie, niemals ein Token.
+model Session {
+  id           String   @id @db.Char(36)
+  userId       String   @db.Char(36)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt    DateTime
+  userAgent    String?  @db.VarChar(500)
+  ip           String?  @db.VarChar(45)
+  /// Fuer den OIDC-Logout (end_session_endpoint).
+  idToken      String?  @db.Text
+  refreshToken String?  @db.Text
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+/// Fahrzeugmasse fliessen als Restriktionen in das ORS-HGV-Profil ein.
+model Vehicle {
+  id                String  @id @db.Char(36)
+  ownerId           String  @db.Char(36)
+  owner             User    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name              String  @db.VarChar(120)
+  heightM           Float?  @db.Double
+  widthM            Float?  @db.Double
+  lengthM           Float?  @db.Double
+  weightT           Float?  @db.Double
+  axles             Int?
+  consumptionL100km Float?  @db.Double
+  trips             Trip[]
+
+  @@index([ownerId])
+}
+
+model Trip {
+  id           String    @id @db.Char(36)
+  ownerId      String    @db.Char(36)
+  owner        User      @relation("TripOwner", fields: [ownerId], references: [id])
+  title        String    @db.VarChar(200)
+  description  String?   @db.Text
+  startDate    DateTime? @db.Date
+  endDate      DateTime? @db.Date
+  status       String    @default("planned") @db.VarChar(20)
+  vehicleId    String?   @db.Char(36)
+  vehicle      Vehicle?  @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  coverPhotoId String?   @db.Char(36)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  members     TripMember[]
+  stages      Stage[]
+  waypoints   Waypoint[]
+  routes      Route[]
+  spots       Spot[]
+  diary       DiaryEntry[]
+  fuelLogs    FuelLog[]
+  expenses    Expense[]
+  shareLinks  ShareLink[]
+
+  @@index([ownerId])
+  @@index([startDate])
+}
+
+model TripMember {
+  tripId String @db.Char(36)
+  trip   Trip   @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  userId String @db.Char(36)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   String @db.VarChar(20)
+  addedAt DateTime @default(now())
+
+  @@id([tripId, userId])
+  @@index([userId])
+}
+
+/// Tagesetappe. Optional: eine Reise kann auch ohne Etappen geplant werden,
+/// dann haengen alle Wegpunkte direkt an der Reise.
+model Stage {
+  id     String    @id @db.Char(36)
+  tripId String    @db.Char(36)
+  trip   Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  seq    Int
+  title  String?   @db.VarChar(200)
+  date   DateTime? @db.Date
+  notes  String?   @db.Text
+
+  waypoints Waypoint[]
+  routes    Route[]
+
+  @@index([tripId, seq])
+}
+
+model Waypoint {
+  id             String    @id @db.Char(36)
+  tripId         String    @db.Char(36)
+  trip           Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  stageId        String?   @db.Char(36)
+  stage          Stage?    @relation(fields: [stageId], references: [id], onDelete: SetNull)
+  seq            Int
+  kind           String    @default("via") @db.VarChar(10)
+  name           String    @db.VarChar(200)
+  lat            Float     @db.Double
+  lon            Float     @db.Double
+  address        String?   @db.VarChar(500)
+  plannedArrival DateTime? @db.Date
+  plannedNights  Int?
+  /// Von der Reihenfolgen-Optimierung ausgenommen.
+  locked         Boolean   @default(false)
+
+  @@index([tripId, seq])
+  @@index([stageId, seq])
+}
+
+/// Cache einer berechneten Route. Der profileHash fasst Wegpunkte, Profil und
+/// Optionen zusammen – unveraenderte Routen kosten damit kein ORS-Kontingent.
+model Route {
+  id          String   @id @db.Char(36)
+  tripId      String   @db.Char(36)
+  trip        Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  stageId     String?  @db.Char(36)
+  stage       Stage?   @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  profileHash String   @unique @db.Char(64)
+  distanceM   Float    @db.Double
+  durationS   Float    @db.Double
+  /// Encoded Polyline, Praezision 5.
+  geometry    String   @db.LongText
+  bbox        String?  @db.VarChar(120)
+  provider    String   @db.VarChar(40)
+  computedAt  DateTime @default(now())
+
+  @@index([tripId])
+  @@index([stageId])
+}
+
+model Spot {
+  id            String    @id @db.Char(36)
+  tripId        String?   @db.Char(36)
+  trip          Trip?     @relation(fields: [tripId], references: [id], onDelete: SetNull)
+  createdById   String    @db.Char(36)
+  createdBy     User      @relation("SpotCreator", fields: [createdById], references: [id])
+  name          String    @db.VarChar(200)
+  lat           Float     @db.Double
+  lon           Float     @db.Double
+  address       String?   @db.VarChar(500)
+  country       String?   @db.Char(2)
+  type          String    @default("stellplatz") @db.VarChar(20)
+  visitedAt     DateTime? @db.Date
+  nights        Int?
+  rating        Int?
+  pricePerNight Decimal?  @db.Decimal(10, 2)
+  currency      String    @default("EUR") @db.Char(3)
+  notes         String?   @db.Text
+  isPrivateNote Boolean   @default(false)
+  source        String    @default("manual") @db.VarChar(10)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  amenities SpotAmenity[]
+  photos    Photo[]
+
+  @@index([tripId])
+  @@index([createdById])
+  @@index([lat, lon])
+  @@index([visitedAt])
+}
+
+model SpotAmenity {
+  spotId  String @db.Char(36)
+  spot    Spot   @relation(fields: [spotId], references: [id], onDelete: Cascade)
+  amenity String @db.VarChar(40)
+
+  @@id([spotId, amenity])
+  @@index([amenity])
+}
+
+model Photo {
+  id           String      @id @db.Char(36)
+  spotId       String?     @db.Char(36)
+  spot         Spot?       @relation(fields: [spotId], references: [id], onDelete: Cascade)
+  diaryEntryId String?     @db.Char(36)
+  diaryEntry   DiaryEntry? @relation(fields: [diaryEntryId], references: [id], onDelete: Cascade)
+  uploadedById String      @db.Char(36)
+  uploadedBy   User        @relation(fields: [uploadedById], references: [id])
+  /// Relativer Pfad unterhalb von PHOTO_DIR, ohne Groessen-Suffix.
+  storageKey   String      @db.VarChar(400)
+  mimeType     String      @db.VarChar(60)
+  width        Int
+  height       Int
+  bytes        Int
+  takenAt      DateTime?
+  lat          Float?      @db.Double
+  lon          Float?      @db.Double
+  caption      String?     @db.VarChar(500)
+  sortIndex    Int         @default(0)
+  createdAt    DateTime    @default(now())
+
+  @@index([spotId, sortIndex])
+  @@index([diaryEntryId, sortIndex])
+}
+
+model DiaryEntry {
+  id         String   @id @db.Char(36)
+  tripId     String   @db.Char(36)
+  trip       Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  date       DateTime @db.Date
+  title      String?  @db.VarChar(200)
+  text       String?  @db.Text
+  odometerKm Int?
+  weather    String?  @db.VarChar(100)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  photos Photo[]
+
+  @@index([tripId, date])
+}
+
+model FuelLog {
+  id         String   @id @db.Char(36)
+  tripId     String   @db.Char(36)
+  trip       Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  date       DateTime @db.Date
+  lat        Float?   @db.Double
+  lon        Float?   @db.Double
+  liters     Decimal  @db.Decimal(8, 2)
+  pricePerL  Decimal? @db.Decimal(6, 3)
+  totalCost  Decimal? @db.Decimal(10, 2)
+  odometerKm Int?
+  /// Nur Volltankungen erlauben eine korrekte Verbrauchsrechnung.
+  isFull     Boolean  @default(true)
+
+  @@index([tripId, date])
+}
+
+model Expense {
+  id       String   @id @db.Char(36)
+  tripId   String   @db.Char(36)
+  trip     Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  date     DateTime @db.Date
+  category String   @db.VarChar(20)
+  amount   Decimal  @db.Decimal(10, 2)
+  currency String   @default("EUR") @db.Char(3)
+  note     String?  @db.VarChar(500)
+
+  @@index([tripId, date])
+}
+
+/// Read-only-Zugang ohne Authelia-Konto.
+model ShareLink {
+  id            String    @id @db.Char(36)
+  tripId        String    @db.Char(36)
+  trip          Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  token         String    @unique @db.VarChar(64)
+  createdById   String    @db.Char(36)
+  createdBy     User      @relation(fields: [createdById], references: [id])
+  expiresAt     DateTime?
+  includePhotos Boolean   @default(true)
+  revokedAt     DateTime?
+  createdAt     DateTime  @default(now())
+
+  @@index([tripId])
+}
+
+/// Ergebnis-Cache fuer Nominatim. Die oeffentliche Instanz erlaubt nur eine
+/// Anfrage pro Sekunde; wiederholte Suchen duerfen sie nicht erneut belasten.
+model GeocodeCache {
+  key       String   @id @db.VarChar(255)
+  response  String   @db.LongText
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
