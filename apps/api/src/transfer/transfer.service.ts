@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import type { ImportResultDto } from '@womo/shared';
+import type { ImportResultDto } from '@ourspots/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { TripsService } from '../trips/trips.service';
 import { RoutingService } from '../routing/routing.service';

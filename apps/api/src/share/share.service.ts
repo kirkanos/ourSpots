@@ -1,6 +1,6 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
-import type { Amenity, PublicTripDto, ShareLinkDto, ShareLinkInput, SpotType } from '@womo/shared';
+import type { Amenity, PublicTripDto, ShareLinkDto, ShareLinkInput, SpotType } from '@ourspots/shared';
 import { AppConfig, CONFIG } from '../config/app-config';
 import { PrismaService } from '../prisma/prisma.service';
 import { TripsService } from '../trips/trips.service';

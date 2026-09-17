@@ -1,5 +1,5 @@
 {
-  "name": "@womo/web",
+  "name": "@ourspots/web",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@tanstack/react-query": "^5.66.9",
-    "@womo/shared": "*",
+    "@ourspots/shared": "*",
     "dexie": "^4.0.11",
     "leaflet": "^1.9.4",
     "leaflet.markercluster": "^1.5.3",

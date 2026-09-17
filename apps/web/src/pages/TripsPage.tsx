@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { v7 as uuidv7 } from 'uuid';
-import { TRIP_STATUS_LABELS, tripInputSchema, type TripStatus } from '@womo/shared';
+import { TRIP_STATUS_LABELS, tripInputSchema, type TripStatus } from '@ourspots/shared';
 import { useSaveTrip, useTrips } from '../api/hooks';
 import { EmptyState, ErrorState, Loading } from '../components/States';
 import { IconPlus } from '../components/Icons';

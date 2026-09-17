@@ -1,4 +1,4 @@
-import { decodePolyline, type LatLon } from '@womo/shared';
+import { decodePolyline, type LatLon } from '@ourspots/shared';
 
 /**
  * GPX- und KML-Erzeugung von Hand.
@@ -30,7 +30,7 @@ export function buildGpx(
 ): string {
   const parts: string[] = [
     '<?xml version="1.0" encoding="UTF-8"?>',
-    '<gpx version="1.1" creator="WoMoPlaner" xmlns="http://www.topografix.com/GPX/1/1">',
+    '<gpx version="1.1" creator="OurSpots" xmlns="http://www.topografix.com/GPX/1/1">',
     '  <metadata>',
     `    <name>${escapeXml(title)}</name>`,
     `    <time>${new Date().toISOString()}</time>`,

@@ -7,7 +7,7 @@ import type {
   RouteLegDto,
   RouteOptions,
   TripRouteDto,
-} from '@womo/shared';
+} from '@ourspots/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { TripsService } from '../trips/trips.service';
 import { newId } from '../common/ids';

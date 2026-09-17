@@ -17,7 +17,7 @@
     "types": ["vite/client", "vite-plugin-pwa/client"],
     "baseUrl": ".",
     "paths": {
-      "@womo/shared": ["../../packages/shared/src/index.ts"]
+      "@ourspots/shared": ["../../packages/shared/src/index.ts"]
     }
   },
   "include": ["src"]

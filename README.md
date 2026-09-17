@@ -1,4 +1,4 @@
-# WoMoPlaner
+# OurSpots
 
 Wohnmobil-Reisen planen, Stellplätze unterwegs erfassen und später wiederfinden.
 Läuft selbst gehostet unter `https://travel.kirkanos.net`, Anmeldung über Authelia (OIDC).

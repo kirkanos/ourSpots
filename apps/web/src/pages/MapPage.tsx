@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Popup, Marker } from 'react-leaflet';
-import { SPOT_TYPE_LABELS, type SpotDto } from '@womo/shared';
+import { SPOT_TYPE_LABELS, type SpotDto } from '@ourspots/shared';
 import { BaseMap } from '../components/map/BaseMap';
 import { ClusterLayer } from '../components/map/ClusterLayer';
 import { crosshairIcon } from '../components/map/markerIcons';

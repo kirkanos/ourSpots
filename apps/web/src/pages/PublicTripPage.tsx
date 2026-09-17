@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Marker, Polyline, Popup } from 'react-leaflet';
-import { AMENITY_LABELS, SPOT_TYPE_LABELS, type PublicTripDto } from '@womo/shared';
+import { AMENITY_LABELS, SPOT_TYPE_LABELS, type PublicTripDto } from '@ourspots/shared';
 import { api } from '../api/client';
 import { BaseMap } from '../components/map/BaseMap';
 import { spotIcon, waypointIcon } from '../components/map/markerIcons';
@@ -52,7 +52,7 @@ export function PublicTripPage() {
       <header className="app__header">
         <span className="app__brand">
           <IconLogo />
-          WoMoPlaner
+          OurSpots
         </span>
         <div className="app__spacer" />
         <span className="badge">geteilte Ansicht</span>

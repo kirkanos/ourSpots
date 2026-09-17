@@ -8,7 +8,7 @@ import {
   type SpotInput,
   type SpotType,
   type TripDto,
-} from '@womo/shared';
+} from '@ourspots/shared';
 import { AmenityPicker } from './AmenityPicker';
 import { LocationField } from './LocationField';
 import { StarRating } from './StarRating';

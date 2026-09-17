@@ -3,7 +3,7 @@ import {
   geocodeQuerySchema,
   reverseQuerySchema,
   type GeocodeResultDto,
-} from '@womo/shared';
+} from '@ourspots/shared';
 import { ZodValidationPipe } from '../common/zod-validation.pipe';
 import { GeocodeService } from './geocode.service';
 

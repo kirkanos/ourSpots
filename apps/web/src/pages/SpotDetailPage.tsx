@@ -1,6 +1,6 @@
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Marker } from 'react-leaflet';
-import { AMENITY_LABELS, SPOT_TYPE_LABELS } from '@womo/shared';
+import { AMENITY_LABELS, SPOT_TYPE_LABELS } from '@ourspots/shared';
 import { useDeleteSpot, useMe, useSpot, useTrips } from '../api/hooks';
 import { BaseMap } from '../components/map/BaseMap';
 import { spotIcon } from '../components/map/markerIcons';

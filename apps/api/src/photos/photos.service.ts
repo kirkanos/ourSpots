@@ -11,7 +11,7 @@ import { mkdir, stat, unlink } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import exifr from 'exifr';
 import sharp from 'sharp';
-import type { PhotoDto } from '@womo/shared';
+import type { PhotoDto } from '@ourspots/shared';
 import { AppConfig, CONFIG } from '../config/app-config';
 import { PrismaService } from '../prisma/prisma.service';
 import { TripsService } from '../trips/trips.service';

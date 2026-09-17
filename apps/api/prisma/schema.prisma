@@ -1,4 +1,4 @@
-// WoMoPlaner – Datenmodell (MariaDB via mysql-Provider)
+// OurSpots – Datenmodell (MariaDB via mysql-Provider)
 //
 // Zwei bewusste Festlegungen:
 //  * IDs sind UUIDv7 als CHAR(36). Sie werden im Client erzeugt, damit offline

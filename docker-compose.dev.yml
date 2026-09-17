@@ -4,18 +4,18 @@
 #   docker compose -f docker-compose.dev.yml up -d
 #
 # Eigener Projektname: sonst ersetzt diese Datenbank den Container des vollen
-# Stacks aus docker-compose.yml, weil Compose sonst beide "womoplaner" nennt.
-name: womoplaner-dev
+# Stacks aus docker-compose.yml, weil Compose sonst beide "ourspots" nennt.
+name: ourspots-dev
 
 services:
   db:
     image: mariadb:11
     restart: unless-stopped
     environment:
-      MARIADB_DATABASE: womoplaner
-      MARIADB_USER: womoplaner
-      MARIADB_PASSWORD: womoplaner
-      MARIADB_ROOT_PASSWORD: womoplaner
+      MARIADB_DATABASE: ourspots
+      MARIADB_USER: ourspots
+      MARIADB_PASSWORD: ourspots
+      MARIADB_ROOT_PASSWORD: ourspots
     command:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci

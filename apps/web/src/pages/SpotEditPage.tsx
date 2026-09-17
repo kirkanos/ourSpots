@@ -1,6 +1,6 @@
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { v7 as uuidv7 } from 'uuid';
-import type { SpotInput } from '@womo/shared';
+import type { SpotInput } from '@ourspots/shared';
 import { useSaveSpot, useSpot, useTrips } from '../api/hooks';
 import { SpotForm } from '../components/SpotForm';
 import { ErrorState, Loading } from '../components/States';

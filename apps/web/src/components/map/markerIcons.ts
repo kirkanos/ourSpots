@@ -1,5 +1,5 @@
 import L from 'leaflet';
-import type { SpotType } from '@womo/shared';
+import type { SpotType } from '@ourspots/shared';
 
 const COLORS: Record<SpotType, string> = {
   stellplatz: '#1f6f5c',

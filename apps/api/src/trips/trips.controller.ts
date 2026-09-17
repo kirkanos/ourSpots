@@ -20,7 +20,7 @@ import {
   type TripInput,
   type TripMemberInput,
   type WaypointDto,
-} from '@womo/shared';
+} from '@ourspots/shared';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { ZodValidationPipe } from '../common/zod-validation.pipe';
 import { TripsService } from './trips.service';

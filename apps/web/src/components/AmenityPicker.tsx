@@ -1,4 +1,4 @@
-import { AMENITIES, AMENITY_LABELS, type Amenity } from '@womo/shared';
+import { AMENITIES, AMENITY_LABELS, type Amenity } from '@ourspots/shared';
 
 interface Props {
   selected: Amenity[];

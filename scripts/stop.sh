@@ -77,7 +77,7 @@ if docker info >/dev/null 2>&1; then
     info "Datenbank und Daten gelöscht."
   else
     $DEV_COMPOSE down
-    info "Daten bleiben erhalten (Volume womoplaner-dev_dev_db_data)."
+    info "Daten bleiben erhalten (Volume ourspots-dev_dev_db_data)."
   fi
 
   # --- 3. Vollständiger Stack ----------------------------------------------

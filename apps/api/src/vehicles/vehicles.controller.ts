@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, HttpCode, Param, Put } from '@nestjs/common';
 import type { User } from '@prisma/client';
-import { vehicleInputSchema, type VehicleDto, type VehicleInput } from '@womo/shared';
+import { vehicleInputSchema, type VehicleDto, type VehicleInput } from '@ourspots/shared';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { ZodValidationPipe } from '../common/zod-validation.pipe';
 import { VehiclesService } from './vehicles.service';

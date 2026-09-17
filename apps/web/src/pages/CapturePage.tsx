@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { v7 as uuidv7 } from 'uuid';
-import { spotInputSchema, type SpotType, SPOT_TYPES, SPOT_TYPE_LABELS } from '@womo/shared';
+import { spotInputSchema, type SpotType, SPOT_TYPES, SPOT_TYPE_LABELS } from '@ourspots/shared';
 import { api } from '../api/client';
 import { reverseGeocode, useSaveSpot, useTrips } from '../api/hooks';
 import { StarRating } from '../components/StarRating';

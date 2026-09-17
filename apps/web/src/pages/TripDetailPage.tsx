@@ -8,7 +8,7 @@ import {
   type TripDto,
   type TripInput,
   type TripStatus,
-} from '@womo/shared';
+} from '@ourspots/shared';
 import {
   useAddTripMember,
   useDeleteTrip,

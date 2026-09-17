@@ -7,7 +7,7 @@ import {
   type SpotDto,
   type SpotInput,
   type SpotQuery,
-} from '@womo/shared';
+} from '@ourspots/shared';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { ZodValidationPipe } from '../common/zod-validation.pipe';
 import { SpotsService } from './spots.service';

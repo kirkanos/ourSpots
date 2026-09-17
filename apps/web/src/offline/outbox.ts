@@ -1,4 +1,4 @@
-import type { SpotDto, SpotInput } from '@womo/shared';
+import type { SpotDto, SpotInput } from '@ourspots/shared';
 import { api, ApiError } from '../api/client';
 import { db, type OutboxEntry } from './db';
 

@@ -8,7 +8,7 @@ import {
   type TripRouteDto,
   type WaypointDto,
   type WaypointInput,
-} from '@womo/shared';
+} from '@ourspots/shared';
 import {
   useCalculateRoute,
   useCachedRoute,

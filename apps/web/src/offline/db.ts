@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import type { SpotDto, SpotInput } from '@womo/shared';
+import type { SpotDto, SpotInput } from '@ourspots/shared';
 
 /**
  * Lokaler Zwischenspeicher für die Offline-Erfassung.
@@ -37,7 +37,7 @@ class WomoDatabase extends Dexie {
   pendingPhotos!: Table<PendingPhoto, string>;
 
   constructor() {
-    super('womoplaner');
+    super('ourspots');
     this.version(1).stores({
       outbox: 'id, createdAt, spotId, kind',
       pendingSpots: 'id, updatedAt',

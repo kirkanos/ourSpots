@@ -9,7 +9,7 @@ import type {
   FuelLogDto,
   FuelLogInput,
   TripStatsDto,
-} from '@womo/shared';
+} from '@ourspots/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { TripsService } from '../trips/trips.service';
 import { decimalToNumber, fromDateOnly, toDateOnly } from '../common/dates';

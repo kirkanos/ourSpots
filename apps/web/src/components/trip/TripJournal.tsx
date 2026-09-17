@@ -9,7 +9,7 @@ import {
   type ExpenseCategory,
   type ExpenseDto,
   type FuelLogDto,
-} from '@womo/shared';
+} from '@ourspots/shared';
 import {
   useDeleteDiary,
   useDeleteExpense,

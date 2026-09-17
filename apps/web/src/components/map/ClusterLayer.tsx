@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet.markercluster';
 import { useMap } from 'react-leaflet';
-import type { SpotDto } from '@womo/shared';
+import type { SpotDto } from '@ourspots/shared';
 import { spotIcon } from './markerIcons';
 
 interface Props {

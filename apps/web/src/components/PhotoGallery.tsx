@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import type { PhotoDto } from '@womo/shared';
+import type { PhotoDto } from '@ourspots/shared';
 import { photoUrl, useDeletePhoto, useUploadPhoto } from '../api/hooks';
 import { IconCamera, IconTrash } from './Icons';
 

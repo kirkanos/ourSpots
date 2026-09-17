@@ -12,7 +12,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import type { User } from '@prisma/client';
-import type { ImportResultDto } from '@womo/shared';
+import type { ImportResultDto } from '@ourspots/shared';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { TransferService } from './transfer.service';
 

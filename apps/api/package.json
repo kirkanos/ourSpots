@@ -1,5 +1,5 @@
 {
-  "name": "@womo/api",
+  "name": "@ourspots/api",
   "version": "0.1.0",
   "private": true,
   "main": "dist/main.js",
@@ -20,7 +20,7 @@
     "@nestjs/core": "^11.0.12",
     "@nestjs/platform-express": "^11.0.12",
     "@prisma/client": "^6.5.0",
-    "@womo/shared": "*",
+    "@ourspots/shared": "*",
     "cookie-parser": "^1.4.7",
     "exifr": "^7.1.3",
     "express": "^5.0.1",

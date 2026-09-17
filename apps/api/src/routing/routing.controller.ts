@@ -7,7 +7,7 @@ import {
   type OptimizeResultDto,
   type RouteOptions,
   type TripRouteDto,
-} from '@womo/shared';
+} from '@ourspots/shared';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { ZodValidationPipe } from '../common/zod-validation.pipe';
 import { RoutingService } from './routing.service';

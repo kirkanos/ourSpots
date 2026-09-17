@@ -99,13 +99,13 @@ fi
 # beim ersten Zugriff mit „did not initialize yet" abbricht. Der Lauf dauert
 # eine Sekunde.
 step "Prisma-Client erzeugen"
-npm run db:generate -w @womo/api
+npm run db:generate -w @ourspots/api
 
-# Die API bindet @womo/shared als gebautes Paket ein (das Frontend nutzt die
+# Die API bindet @ourspots/shared als gebautes Paket ein (das Frontend nutzt die
 # Quelle direkt). Auf einem frischen Klon gibt es dist/ noch nicht, und ohne das
 # findet die API das Modul nicht.
 step "Gemeinsames Paket bauen"
-npm run build -w @womo/shared
+npm run build -w @ourspots/shared
 
 step "Schema aktualisieren"
 # Bewusst "migrate deploy" statt "migrate dev": deploy wendet nur vorhandene
@@ -115,7 +115,7 @@ npm run db:apply
 
 # Seeden nur, wenn noch niemand da ist – sonst wären eigene Daten nach jedem
 # Start wieder weg.
-USER_COUNT=$($COMPOSE exec -T db mariadb -uwomoplaner -pwomoplaner womoplaner \
+USER_COUNT=$($COMPOSE exec -T db mariadb -uourspots -pourspots ourspots \
   -N -B -e 'SELECT COUNT(*) FROM User' 2>/dev/null | tr -d '[:space:]' || echo 0)
 
 if [ "$FORCE_SEED" = true ] || [ "${USER_COUNT:-0}" = "0" ]; then

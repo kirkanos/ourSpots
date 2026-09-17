@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { v7 as uuidv7 } from 'uuid';
-import { vehicleInputSchema, type VehicleDto, type VehicleInput } from '@womo/shared';
+import { vehicleInputSchema, type VehicleDto, type VehicleInput } from '@ourspots/shared';
 import {
   useDeleteVehicle,
   useImportSpots,

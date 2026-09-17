@@ -39,7 +39,7 @@ export function LoginPrompt() {
     <div className="page" style={{ maxWidth: '26rem', paddingTop: '4rem' }}>
       <div className="card stack" style={{ textAlign: 'center' }}>
         <IconLogo className="login__logo" />
-        <h1>WoMoPlaner</h1>
+        <h1>OurSpots</h1>
         <p className="muted">
           Reisen planen, Stellplätze sammeln und wiederfinden. Die Anmeldung läuft über deinen
           eigenen Authelia-Zugang.

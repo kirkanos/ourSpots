@@ -1,4 +1,4 @@
-import type { ExpenseCategory } from '@womo/shared';
+import type { ExpenseCategory } from '@ourspots/shared';
 import { useTripStats } from '../../api/hooks';
 import { ErrorState, Loading } from '../States';
 import { formatLiters, formatMoney } from '../../lib/format';

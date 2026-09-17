@@ -11,7 +11,7 @@ import {
   type FuelLogDto,
   type FuelLogInput,
   type TripStatsDto,
-} from '@womo/shared';
+} from '@ourspots/shared';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { ZodValidationPipe } from '../common/zod-validation.pipe';
 import { JournalService } from './journal.service';

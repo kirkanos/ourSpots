@@ -17,7 +17,7 @@ ist:
 2. Abhängigkeiten installieren, falls `package-lock.json` neuer ist als `node_modules`
 3. MariaDB im Container starten und warten, bis sie bereit ist
 4. Prisma-Client erzeugen
-5. Gemeinsames Paket `@womo/shared` bauen
+5. Gemeinsames Paket `@ourspots/shared` bauen
 6. Migrationen anwenden
 7. Beispieldaten einspielen – aber nur, wenn die Datenbank leer ist
 8. API (:3000) und Oberfläche (:5173) starten
@@ -70,7 +70,7 @@ Die IDs sind fest, ein erneuter Seed liefert also dieselben Links.
 |---|---|
 | Alles typprüfen | `npm run typecheck` |
 | Datenbank ansehen | `npm run db:studio` |
-| Schema ändern | `apps/api/prisma/schema.prisma` bearbeiten, dann `npm run db:migrate -w @womo/api -- --name <beschreibung>` |
+| Schema ändern | `apps/api/prisma/schema.prisma` bearbeiten, dann `npm run db:migrate -w @ourspots/api -- --name <beschreibung>` |
 | Alles stoppen | `npm run stop` |
 | Nur die Server (ohne Einrichtung) | `npm run dev:servers` |
 | Produktionsaufbau testen | `docker compose up -d --build` (eigener Stack, eigene Datenbank) |
@@ -82,7 +82,7 @@ Die IDs sind fest, ein erneuter Seed liefert also dieselben Links.
 | Anmeldung | Knopf „Lokal anmelden" | Authelia per OIDC |
 | Routenberechnung | ohne `ORS_API_KEY` deaktiviert, mit Hinweis in der Oberfläche | OpenRouteService |
 | Service Worker | abgeschaltet, damit Änderungen sofort sichtbar sind | aktiv (PWA, Offline-Cache) |
-| Datenbank | Container auf Port 3307, Projekt `womoplaner-dev` | Container im Projekt `womoplaner` |
+| Datenbank | Container auf Port 3307, Projekt `ourspots-dev` | Container im Projekt `ourspots` |
 | Fotos | `apps/api/data/photos` | Volume `photo_data` |
 
 Weil der Service Worker lokal aus ist, lässt sich die Offline-Erfassung im

@@ -10,7 +10,7 @@ import type {
   TripStatus,
   WaypointDto,
   WaypointInput,
-} from '@womo/shared';
+} from '@ourspots/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { newId } from '../common/ids';
 import { fromDateOnly, toDateOnly } from '../common/dates';

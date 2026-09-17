@@ -1,5 +1,5 @@
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
-import type { TripRole } from '@womo/shared';
+import type { TripRole } from '@ourspots/shared';
 
 const RANK: Record<TripRole, number> = { viewer: 0, editor: 1, owner: 2 };
 

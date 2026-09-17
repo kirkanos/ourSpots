@@ -28,7 +28,7 @@ import type {
   UserDto,
   WaypointDto,
   WaypointInput,
-} from '@womo/shared';
+} from '@ourspots/shared';
 import { api, buildQuery } from './client';
 import { isOfflineError } from '../offline/db';
 import { pendingSpot, pendingSpots, queuePhoto, queueSpot } from '../offline/outbox';

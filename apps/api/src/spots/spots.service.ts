@@ -9,7 +9,7 @@ import type {
   SpotQuery,
   SpotSource,
   SpotType,
-} from '@womo/shared';
+} from '@ourspots/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { decimalToNumber, fromDateOnly, toDateOnly } from '../common/dates';
 import { boundingBoxAround, haversineKm, parseBbox, parseLatLon } from '../common/geo';

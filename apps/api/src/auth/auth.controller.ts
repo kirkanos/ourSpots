@@ -17,7 +17,7 @@ import { SessionService } from './session.service';
 import { Public } from './public.decorator';
 import { CurrentUser, type AuthenticatedRequest } from './current-user.decorator';
 import type { User } from '@prisma/client';
-import type { UserDto } from '@womo/shared';
+import type { UserDto } from '@ourspots/shared';
 
 interface FlowState {
   state: string;

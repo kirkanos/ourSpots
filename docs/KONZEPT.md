@@ -1,4 +1,4 @@
-# WoMoPlaner – Konzept
+# OurSpots – Konzept
 
 Stand: 2026-09-16 · Status: **Entwurf zur Abnahme**
 
@@ -46,7 +46,7 @@ Stand: 2026-09-16 · Status: **Entwurf zur Abnahme**
 **Monorepo** (npm workspaces):
 
 ```
-WoMoPlaner/
+OurSpots/
 ├─ apps/
 │  ├─ api/            NestJS, Prisma, Module: auth, trips, stages, spots,
 │  │                  photos, routing, diary, search, share, import-export
@@ -220,8 +220,8 @@ In der Authelia-`configuration.yml` ein **confidential client**:
 identity_providers:
   oidc:
     clients:
-      - client_id: womoplaner
-        client_name: WoMo Planer
+      - client_id: ourspots
+        client_name: OurSpots
         client_secret: '$pbkdf2-sha512$...'      # digest, per `authelia crypto hash generate`
         public: false
         authorization_policy: two_factor          # oder one_factor
@@ -286,11 +286,11 @@ API-Start automatisch (`prisma migrate deploy`).
 2. **Koordinaten als `DOUBLE`,** siehe Abschnitt 3.
 3. **`openid-client` in Version 5** statt der aktuellen 6: Version 6 ist reines ESM und passt
    nicht zum CommonJS-Build von NestJS. Version 5 ist stabil und wird weiter gepflegt.
-4. **Das Frontend bindet `@womo/shared` als Quelltext ein,** nicht als gebautes Paket. Das
+4. **Das Frontend bindet `@ourspots/shared` als Quelltext ein,** nicht als gebautes Paket. Das
    CommonJS-Build verbirgt seine Named Exports vor dem Bundler; über den Quellpfad löst Vite sie
    statisch auf und übernimmt Änderungen im Dev-Betrieb sofort.
 5. **Keine `class-validator`-Pipe.** Validiert wird ausschließlich mit den Zod-Schemas aus
-   `@womo/shared`, damit Frontend und Backend nicht auseinanderlaufen können.
+   `@ourspots/shared`, damit Frontend und Backend nicht auseinanderlaufen können.
 
 ## 14. Stand der Umsetzung
 

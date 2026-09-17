@@ -10,8 +10,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg'],
       manifest: {
-        name: 'WoMoPlaner',
-        short_name: 'WoMo',
+        name: 'OurSpots',
+        short_name: 'OurSpots',
         description: 'Wohnmobil-Reisen planen und Stellplätze sammeln',
         lang: 'de',
         start_url: '/karte',
@@ -78,7 +78,7 @@ export default defineConfig({
       // Direkt auf die Quelle statt auf das CommonJS-Build des Pakets: so kann
       // Rollup die Named Exports statisch auflösen und der Dev-Server lädt
       // Änderungen an den gemeinsamen Schemas sofort neu.
-      '@womo/shared': fileURLToPath(new URL('../../packages/shared/src/index.ts', import.meta.url)),
+      '@ourspots/shared': fileURLToPath(new URL('../../packages/shared/src/index.ts', import.meta.url)),
     },
   },
   server: {

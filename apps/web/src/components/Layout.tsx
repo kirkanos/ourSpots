@@ -22,7 +22,7 @@ export function Layout() {
       <header className="app__header">
         <NavLink to="/" className="app__brand">
           <IconLogo />
-          WoMoPlaner
+          OurSpots
         </NavLink>
         <div className="app__spacer" />
         <Link to="/einstellungen" className="btn btn--ghost btn--small">

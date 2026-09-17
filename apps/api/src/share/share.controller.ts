@@ -16,7 +16,7 @@ import {
   type PublicTripDto,
   type ShareLinkDto,
   type ShareLinkInput,
-} from '@womo/shared';
+} from '@ourspots/shared';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { Public } from '../auth/public.decorator';
 import { ZodValidationPipe } from '../common/zod-validation.pipe';

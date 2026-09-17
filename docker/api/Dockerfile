@@ -17,18 +17,18 @@ COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
 
 # Nur die beiden Workspaces installieren, die fuer die API gebraucht werden.
-RUN npm ci --workspace @womo/shared --workspace @womo/api --include-workspace-root
+RUN npm ci --workspace @ourspots/shared --workspace @ourspots/api --include-workspace-root
 
 COPY packages/shared packages/shared
 COPY apps/api apps/api
 
-RUN npm run build --workspace @womo/shared \
+RUN npm run build --workspace @ourspots/shared \
  && npx prisma generate --schema apps/api/prisma/schema.prisma \
- && npm run build --workspace @womo/api
+ && npm run build --workspace @ourspots/api
 
 # Dev-Abhaengigkeiten entfernen und den Prisma-Client neu erzeugen, weil das
 # Aufraeumen ihn mitnimmt.
-RUN npm prune --omit=dev --workspace @womo/shared --workspace @womo/api --include-workspace-root \
+RUN npm prune --omit=dev --workspace @ourspots/shared --workspace @ourspots/api --include-workspace-root \
  && npx --no-install prisma generate --schema apps/api/prisma/schema.prisma
 
 # --- Laufzeit ---------------------------------------------------------------

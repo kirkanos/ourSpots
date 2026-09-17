@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
-import type { GeocodeResultDto } from '@womo/shared';
+import type { GeocodeResultDto } from '@ourspots/shared';
 import { AppConfig, CONFIG } from '../config/app-config';
 import { PrismaService } from '../prisma/prisma.service';
 

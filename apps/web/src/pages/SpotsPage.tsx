@@ -7,7 +7,7 @@ import {
   SPOT_TYPE_LABELS,
   type Amenity,
   type SpotType,
-} from '@womo/shared';
+} from '@ourspots/shared';
 import { useSpots, useTrips, type SpotFilters } from '../api/hooks';
 import { photoUrl } from '../api/hooks';
 import { StarRating } from '../components/StarRating';

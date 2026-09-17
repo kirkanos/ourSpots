@@ -1,4 +1,4 @@
-name: womoplaner
+name: ourspots
 
 services:
   db:

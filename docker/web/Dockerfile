@@ -13,12 +13,12 @@ COPY packages/shared/package.json packages/shared/
 COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
 
-RUN npm ci --workspace @womo/shared --workspace @womo/web --include-workspace-root
+RUN npm ci --workspace @ourspots/shared --workspace @ourspots/web --include-workspace-root
 
 COPY packages/shared packages/shared
 COPY apps/web apps/web
 
-RUN npm run build --workspace @womo/web
+RUN npm run build --workspace @ourspots/web
 
 FROM nginx:1.27-alpine AS runtime
 COPY docker/web/nginx.conf /etc/nginx/conf.d/default.conf

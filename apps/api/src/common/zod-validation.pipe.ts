@@ -3,7 +3,7 @@ import type { ZodSchema } from 'zod';
 
 /**
  * Validiert Request-Bodies und Query-Parameter gegen die Schemas aus
- * @womo/shared – dieselben Schemas nutzt das Frontend fuer seine Formulare.
+ * @ourspots/shared – dieselben Schemas nutzt das Frontend fuer seine Formulare.
  */
 export class ZodValidationPipe<T> implements PipeTransform<unknown, T> {
   constructor(private readonly schema: ZodSchema<T>) {}

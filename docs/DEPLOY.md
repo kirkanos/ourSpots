@@ -8,8 +8,8 @@ In der Authelia-Konfiguration einen vertraulichen OIDC-Client anlegen:
 identity_providers:
   oidc:
     clients:
-      - client_id: womoplaner
-        client_name: WoMo Planer
+      - client_id: ourspots
+        client_name: OurSpots
         client_secret: '$pbkdf2-sha512$...'   # Hash aus: authelia crypto hash generate pbkdf2
         public: false
         authorization_policy: two_factor
@@ -69,10 +69,10 @@ ersetzen:
 ```yaml
     labels:
       - traefik.enable=true
-      - traefik.http.routers.womo.rule=Host(`travel.kirkanos.net`)
-      - traefik.http.routers.womo.entrypoints=websecure
-      - traefik.http.routers.womo.tls.certresolver=letsencrypt
-      - traefik.http.services.womo.loadbalancer.server.port=80
+      - traefik.http.routers.ourspots.rule=Host(`travel.kirkanos.net`)
+      - traefik.http.routers.ourspots.entrypoints=websecure
+      - traefik.http.routers.ourspots.tls.certresolver=letsencrypt
+      - traefik.http.services.ourspots.loadbalancer.server.port=80
 ```
 
 Der Proxy muss `X-Forwarded-Proto: https` setzen – die API markiert ihr
@@ -94,8 +94,8 @@ Zwei Dinge sind zu sichern:
 
 | Was | Wo |
 |---|---|
-| Datenbank | Volume `womoplaner_db_data`, z. B. per `docker compose exec db mariadb-dump -u root -p womoplaner` |
-| Fotos | Volume `womoplaner_photo_data` (`/data/photos` im API-Container) |
+| Datenbank | Volume `ourspots_db_data`, z. B. per `docker compose exec db mariadb-dump -u root -p ourspots` |
+| Fotos | Volume `ourspots_photo_data` (`/data/photos` im API-Container) |
 
 Die Fotos liegen bewusst nicht in der Datenbank, aber ein Backup ohne sie ist
 unvollständig: die Datensätze verweisen dann auf fehlende Dateien.
