@@ -1,5 +1,8 @@
 # OurSpots
 
+> Self-hosted trip planner and campsite log for camper vans — vehicle-aware routing,
+> photos on a map, shared with the people you travel with, works offline.
+
 Wohnmobil-Reisen planen, Stellplätze unterwegs erfassen und später wiederfinden.
 Läuft selbst gehostet unter `https://travel.kirkanos.net`, Anmeldung über Authelia (OIDC).
 

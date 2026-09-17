@@ -30,7 +30,7 @@ export interface PendingPhoto {
   filename: string;
 }
 
-class WomoDatabase extends Dexie {
+class OurSpotsDatabase extends Dexie {
   outbox!: Table<OutboxEntry, string>;
   /** Vollständige Stellplätze, solange sie noch nicht übertragen sind. */
   pendingSpots!: Table<SpotDto, string>;
@@ -46,7 +46,7 @@ class WomoDatabase extends Dexie {
   }
 }
 
-export const db = new WomoDatabase();
+export const db = new OurSpotsDatabase();
 
 /** Ein Netzwerkfehler – im Gegensatz zu einer Absage des Servers. */
 export function isOfflineError(error: unknown): boolean {
