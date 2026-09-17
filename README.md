@@ -90,4 +90,6 @@ docker compose up -d --build
 | Datenbank ansehen | `npm run db:studio` |
 | Lokale Datenbank neu aufbauen | `npm run dev -- --reset` |
 | Stack neu bauen | `docker compose up -d --build` |
-| Alles inklusive Daten löschen | `docker compose down -v` |
+| Alles stoppen | `npm run stop` |
+| Alles stoppen, auch den Stack | `npm run stop -- --all` |
+| Alles inklusive Daten löschen | `npm run stop -- --purge` |

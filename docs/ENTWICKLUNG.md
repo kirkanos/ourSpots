@@ -28,7 +28,23 @@ ist:
 | `npm run dev -- --seed` | Beispieldaten neu einspielen (überschreibt vorhandene) |
 | `npm run dev -- --reset` | Datenbank verwerfen und komplett neu aufbauen |
 
-Beenden mit Strg+C. Die Datenbank läuft weiter, bis `npm run dev:db:stop`.
+Beenden mit Strg+C – das stoppt die Server. Die Datenbank läuft im Container
+weiter, damit der nächste Start schneller ist.
+
+## Stoppen
+
+```bash
+npm run stop
+```
+
+| Variante | Wirkung |
+|---|---|
+| `npm run stop` | Entwicklungsserver und lokale Datenbank; Daten bleiben |
+| `npm run stop -- --all` | zusätzlich den vollständigen Stack aus `docker-compose.yml` |
+| `npm run stop -- --purge` | alles stoppen und alle Daten löschen |
+
+Das Skript beendet nur Prozesse, die aus diesem Verzeichnis heraus gestartet
+wurden – ein fremdes Projekt auf Port 5173 bleibt unangetastet.
 
 Im Browser http://localhost:5173 öffnen und **„Lokal anmelden (Entwicklung)"**
 wählen. Dieser Knopf erscheint nur, wenn `DEV_LOGIN=true` gesetzt ist; die
@@ -55,7 +71,7 @@ Die IDs sind fest, ein erneuter Seed liefert also dieselben Links.
 | Alles typprüfen | `npm run typecheck` |
 | Datenbank ansehen | `npm run db:studio` |
 | Schema ändern | `apps/api/prisma/schema.prisma` bearbeiten, dann `npm run db:migrate -w @womo/api -- --name <beschreibung>` |
-| Datenbank stoppen | `npm run dev:db:stop` |
+| Alles stoppen | `npm run stop` |
 | Nur die Server (ohne Einrichtung) | `npm run dev:servers` |
 | Produktionsaufbau testen | `docker compose up -d --build` (eigener Stack, eigene Datenbank) |
 

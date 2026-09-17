@@ -32,7 +32,7 @@ Startet die komplette lokale Umgebung mit einem Befehl.
   npm run dev -- --seed      Beispieldaten neu einspielen
 
 Jeder Schritt prüft vorher, ob er nötig ist. Beenden mit Strg+C; die Datenbank
-läuft weiter, bis "npm run dev:db:stop".
+läuft weiter, bis "npm run stop".
 HILFE
       exit 0 ;;
     *)
@@ -133,7 +133,7 @@ cat <<'HINWEIS'
   API:         http://localhost:3000/api/health
 
   Anmelden mit „Lokal anmelden (Entwicklung)".
-  Beenden mit Strg+C – die Datenbank läuft weiter (Stoppen: npm run dev:db:stop).
+  Beenden mit Strg+C – die Datenbank läuft weiter (Stoppen: npm run stop).
 
 HINWEIS
 
