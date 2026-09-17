@@ -22,7 +22,18 @@ for arg in "$@"; do
     --reset) RESET=true ;;
     --seed)  FORCE_SEED=true ;;
     -h|--help)
-      sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'
+      # Fester Text statt aus dem Kopf des Skripts geschnitten – sonst wandert
+      # die Hilfe, sobald jemand eine Kommentarzeile ergänzt.
+      cat <<'HILFE'
+Startet die komplette lokale Umgebung mit einem Befehl.
+
+  npm run dev                alles hochfahren (und beim ersten Mal einrichten)
+  npm run dev -- --reset     Datenbank verwerfen und neu aufbauen
+  npm run dev -- --seed      Beispieldaten neu einspielen
+
+Jeder Schritt prüft vorher, ob er nötig ist. Beenden mit Strg+C; die Datenbank
+läuft weiter, bis "npm run dev:db:stop".
+HILFE
       exit 0 ;;
     *)
       echo "Unbekannte Option: $arg (--reset, --seed oder --help)" >&2

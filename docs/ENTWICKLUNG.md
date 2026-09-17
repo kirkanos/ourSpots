@@ -3,21 +3,32 @@
 Die lokale Umgebung kommt ohne Authelia und ohne OpenRouteService aus: Angemeldet
 wird über eine Abkürzung, und was einen Schlüssel braucht, sagt das verständlich.
 
-## Einmalig einrichten
-
-```bash
-cp .env.development.example .env.development
-npm install
-npm run dev:db          # MariaDB im Container, Port 3307
-npm run db:migrate      # Schema anlegen
-npm run db:seed         # Beispieldaten
-```
-
 ## Starten
 
 ```bash
-npm run dev             # API auf :3000, Web auf :5173
+npm run dev
 ```
+
+Das genügt – auch beim allerersten Mal. Das Skript dahinter (`scripts/dev.sh`)
+erledigt der Reihe nach alles, was nötig ist, und überspringt, was schon erledigt
+ist:
+
+1. `.env.development` aus der Vorlage anlegen, falls sie fehlt
+2. Abhängigkeiten installieren, falls `package-lock.json` neuer ist als `node_modules`
+3. MariaDB im Container starten und warten, bis sie bereit ist
+4. Prisma-Client erzeugen
+5. Gemeinsames Paket `@womo/shared` bauen
+6. Migrationen anwenden
+7. Beispieldaten einspielen – aber nur, wenn die Datenbank leer ist
+8. API (:3000) und Oberfläche (:5173) starten
+
+| Variante | Wirkung |
+|---|---|
+| `npm run dev` | wie oben; vorhandene Daten bleiben |
+| `npm run dev -- --seed` | Beispieldaten neu einspielen (überschreibt vorhandene) |
+| `npm run dev -- --reset` | Datenbank verwerfen und komplett neu aufbauen |
+
+Beenden mit Strg+C. Die Datenbank läuft weiter, bis `npm run dev:db:stop`.
 
 Im Browser http://localhost:5173 öffnen und **„Lokal anmelden (Entwicklung)"**
 wählen. Dieser Knopf erscheint nur, wenn `DEV_LOGIN=true` gesetzt ist; die
@@ -35,12 +46,7 @@ Der Seed legt an:
 | Reisen | „Nordsee im Frühjahr" (laufend, mit Etappen, Tagebuch, Tankungen, Ausgaben) und „Toskana im Herbst" (abgeschlossen) |
 | Stellplätze | 10 Stück in DE, NL, IT und FR mit Bewertungen, Preisen und Ausstattung |
 
-Die IDs sind fest, ein erneuter Seed liefert also dieselben Links. Zurücksetzen:
-
-```bash
-npm run db:seed         # nur Daten neu
-npm run dev:reset       # Datenbank komplett neu aufbauen
-```
+Die IDs sind fest, ein erneuter Seed liefert also dieselben Links.
 
 ## Nützliche Befehle
 
@@ -50,6 +56,7 @@ npm run dev:reset       # Datenbank komplett neu aufbauen
 | Datenbank ansehen | `npm run db:studio` |
 | Schema ändern | `apps/api/prisma/schema.prisma` bearbeiten, dann `npm run db:migrate -w @womo/api -- --name <beschreibung>` |
 | Datenbank stoppen | `npm run dev:db:stop` |
+| Nur die Server (ohne Einrichtung) | `npm run dev:servers` |
 | Produktionsaufbau testen | `docker compose up -d --build` (eigener Stack, eigene Datenbank) |
 
 ## Was lokal anders ist

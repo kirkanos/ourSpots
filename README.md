@@ -68,10 +68,17 @@ zustellen darf.
 ## Schnellstart
 
 ```bash
-# Lokal entwickeln (ohne Authelia, mit Beispieldaten)
-cp .env.development.example .env.development
-npm install && npm run dev:db && npm run db:migrate && npm run db:seed && npm run dev
+# Lokal entwickeln – ein Befehl, auch beim ersten Mal
+npm run dev
+```
 
+Das richtet beim ersten Aufruf alles ein (Konfiguration, Abhängigkeiten,
+Datenbank im Container, Schema, Beispieldaten) und startet API und Oberfläche.
+Danach http://localhost:5173 öffnen und „Lokal anmelden (Entwicklung)" wählen –
+Authelia wird dafür nicht gebraucht. `npm run dev -- --reset` baut die Datenbank
+neu auf.
+
+```bash
 # Vollständiger Stack wie im Betrieb
 cp .env.example .env     # Werte eintragen
 docker compose up -d --build
@@ -81,6 +88,6 @@ docker compose up -d --build
 |---|---|
 | Alles typprüfen | `npm run typecheck` |
 | Datenbank ansehen | `npm run db:studio` |
-| Lokale Datenbank neu aufbauen | `npm run dev:reset` |
+| Lokale Datenbank neu aufbauen | `npm run dev -- --reset` |
 | Stack neu bauen | `docker compose up -d --build` |
 | Alles inklusive Daten löschen | `docker compose down -v` |

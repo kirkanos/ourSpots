@@ -19,7 +19,6 @@
     "dev:api": "npm run dev -w @womo/api",
     "dev:db": "docker compose -f docker-compose.dev.yml up -d",
     "dev:db:stop": "docker compose -f docker-compose.dev.yml down",
-    "dev:reset": "docker compose -f docker-compose.dev.yml down -v && npm run dev:db && npm run db:migrate && npm run db:seed",
     "dev:servers": "concurrently -n shared,api,web -c magenta,green,cyan \"npm:dev:shared\" \"npm:dev:api\" \"npm:dev:web\"",
     "dev:shared": "npm run dev -w @womo/shared",
     "dev:web": "npm run dev -w @womo/web",
