@@ -6,9 +6,13 @@
  *
  *   npm run db:seed
  */
-import { PrismaClient } from '@prisma/client';
+import { PrismaMariaDb } from '@prisma/adapter-mariadb';
+import { PrismaClient } from '../src/generated/prisma/client';
 
-const prisma = new PrismaClient();
+// Prisma 7: Verbindung über den Treiber-Adapter, Adresse aus der Umgebung.
+const prisma = new PrismaClient({
+  adapter: new PrismaMariaDb(process.env.DATABASE_URL ?? ''),
+});
 
 /**
  * Stabile, gueltig geformte UUIDv7 aus Typ und laufender Nummer.

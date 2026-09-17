@@ -10,7 +10,7 @@ import {
   Res,
 } from '@nestjs/common';
 import type { Response } from 'express';
-import type { User } from '@prisma/client';
+import type { User } from '../generated/prisma/client';
 import {
   shareLinkInputSchema,
   type PublicTripDto,

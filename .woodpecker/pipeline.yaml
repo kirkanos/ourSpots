@@ -35,7 +35,7 @@ steps:
       # Im API-Image ist das Paket aus demselben Grund installiert.
       - apt-get update -qq && apt-get install -y -qq --no-install-recommends openssl
       - npm ci --no-audit --no-fund
-      - npx prisma generate --schema apps/api/prisma/schema.prisma
+      - npx prisma generate --config apps/api/prisma.config.ts
       - npm run build --workspace @ourspots/shared
       - npm run typecheck
       - npm run build --workspace @ourspots/web

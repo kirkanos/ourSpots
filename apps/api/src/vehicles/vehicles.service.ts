@@ -1,5 +1,5 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import type { Vehicle } from '@prisma/client';
+import type { Vehicle } from '../generated/prisma/client';
 import type { VehicleDto, VehicleInput } from '@ourspots/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { newId } from '../common/ids';

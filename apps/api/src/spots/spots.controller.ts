@@ -1,5 +1,5 @@
 import { Body, Controller, Delete, Get, HttpCode, Param, Put, Query } from '@nestjs/common';
-import type { User } from '@prisma/client';
+import type { User } from '../generated/prisma/client';
 import {
   spotInputSchema,
   spotQuerySchema,

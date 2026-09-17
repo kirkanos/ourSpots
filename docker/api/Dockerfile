@@ -23,13 +23,13 @@ COPY packages/shared packages/shared
 COPY apps/api apps/api
 
 RUN npm run build --workspace @ourspots/shared \
- && npx prisma generate --schema apps/api/prisma/schema.prisma \
+ && npx prisma generate --config apps/api/prisma.config.ts \
  && npm run build --workspace @ourspots/api
 
 # Dev-Abhaengigkeiten entfernen und den Prisma-Client neu erzeugen, weil das
 # Aufraeumen ihn mitnimmt.
 RUN npm prune --omit=dev --workspace @ourspots/shared --workspace @ourspots/api --include-workspace-root \
- && npx --no-install prisma generate --schema apps/api/prisma/schema.prisma
+ && npx --no-install prisma generate --config apps/api/prisma.config.ts
 
 # --- Laufzeit ---------------------------------------------------------------
 FROM node:22-bookworm-slim AS runtime
@@ -49,6 +49,7 @@ COPY --chown=node:node --from=build /app/packages/shared/package.json ./packages
 COPY --chown=node:node --from=build /app/apps/api/dist ./apps/api/dist
 COPY --chown=node:node --from=build /app/apps/api/package.json ./apps/api/package.json
 COPY --chown=node:node --from=build /app/apps/api/prisma ./apps/api/prisma
+COPY --chown=node:node --from=build /app/apps/api/prisma.config.ts ./apps/api/prisma.config.ts
 COPY docker/api/entrypoint.sh /usr/local/bin/entrypoint.sh
 
 # Der Prisma-CLI prueft beim Start seine Engine-Dateien und braucht dafuer

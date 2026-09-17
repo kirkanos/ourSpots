@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { Session, User } from '@prisma/client';
+import type { Session, User } from '../generated/prisma/client';
 import { AppConfig, CONFIG } from '../config/app-config';
 import { PrismaService } from '../prisma/prisma.service';
 import { newId } from '../common/ids';

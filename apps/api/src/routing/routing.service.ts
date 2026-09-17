@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { createHash } from 'node:crypto';
-import type { Stage, Waypoint } from '@prisma/client';
+import type { Stage, Waypoint } from '../generated/prisma/client';
 import type {
   OptimizeOptions,
   OptimizeResultDto,

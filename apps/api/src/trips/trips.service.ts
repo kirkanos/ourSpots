@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import type { Prisma, Trip } from '@prisma/client';
+import type { Prisma, Trip } from '../generated/prisma/client';
 import type {
   StageDto,
   StageInput,

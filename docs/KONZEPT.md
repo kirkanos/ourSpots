@@ -306,7 +306,28 @@ API-Start automatisch (`prisma migrate deploy`).
 | 8 Teilen-Links, Import/Export | fertig |
 | 9 Feinschliff, lokale Entwicklungsumgebung | fertig |
 
-## 15. Routing: Umzug auf api.heigit.org
+## 15. Prisma 7
+
+Seit dem Umstieg auf Prisma 7 gelten drei Dinge anders:
+
+- **Der Client wird nach `apps/api/src/generated/prisma` erzeugt,** nicht mehr
+  nach `node_modules`. Das Verzeichnis ist nicht versioniert und entsteht bei
+  jedem Build neu; Importe zeigen relativ dorthin statt auf `@prisma/client`.
+- **Die Verbindung läuft über einen Treiber-Adapter** (`@prisma/adapter-mariadb`)
+  statt über die eingebaute Rust-Engine. Die Adresse kommt deshalb nicht mehr aus
+  dem Schema, sondern beim Erzeugen des Clients aus der Konfiguration. Im Image
+  liegt dadurch keine Query-Engine mehr.
+- **Werkzeug-Einstellungen stehen in `apps/api/prisma.config.ts`:** Schemapfad,
+  Migrationen und Datenbankadresse. Aufrufe aus dem Wurzelverzeichnis brauchen
+  `--config apps/api/prisma.config.ts`; mit `--schema` allein bricht
+  `migrate deploy` mit „datasource.url property is required" ab.
+
+Die Adresse steht dort bewusst als `process.env.DATABASE_URL ?? ''` und nicht als
+`env('DATABASE_URL')`: Letzteres wirft, sobald die Variable fehlt – und dann
+liesse sich nicht einmal der Client erzeugen, obwohl dafür keine Verbindung nötig
+ist. Genau das ist im Docker-Build der Fall.
+
+## 16. Routing: Umzug auf api.heigit.org
 
 OpenRouteService hat `api.openrouteservice.org` zugunsten von `api.heigit.org`
 aufgegeben (angekündigt 28.04.2026, Abschaltung 24.08.2026). Der bestehende

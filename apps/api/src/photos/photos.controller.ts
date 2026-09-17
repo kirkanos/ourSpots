@@ -14,7 +14,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
-import type { User } from '@prisma/client';
+import type { User } from '../generated/prisma/client';
 import type { PhotoDto } from '@ourspots/shared';
 import { AppConfig, CONFIG } from '../config/app-config';
 import { CurrentUser } from '../auth/current-user.decorator';

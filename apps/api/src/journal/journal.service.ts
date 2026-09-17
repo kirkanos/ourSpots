@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { DiaryEntry, Expense, FuelLog } from '@prisma/client';
+import type { DiaryEntry, Expense, FuelLog } from '../generated/prisma/client';
 import type {
   DiaryEntryDto,
   DiaryEntryInput,

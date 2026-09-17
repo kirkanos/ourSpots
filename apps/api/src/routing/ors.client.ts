@@ -4,7 +4,7 @@ import {
   Logger,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import type { Vehicle } from '@prisma/client';
+import type { Vehicle } from '../generated/prisma/client';
 import type { RoutePreference } from '@ourspots/shared';
 import { AppConfig, CONFIG } from '../config/app-config';
 

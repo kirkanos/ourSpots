@@ -9,7 +9,7 @@ import {
   Put,
   UsePipes,
 } from '@nestjs/common';
-import type { User } from '@prisma/client';
+import type { User } from '../generated/prisma/client';
 import {
   tripInputSchema,
   tripMemberInputSchema,

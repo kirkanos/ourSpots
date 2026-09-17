@@ -16,7 +16,7 @@ import { OidcService } from './oidc.service';
 import { SessionService } from './session.service';
 import { Public } from './public.decorator';
 import { CurrentUser, type AuthenticatedRequest } from './current-user.decorator';
-import type { User } from '@prisma/client';
+import type { User } from '../generated/prisma/client';
 import type { UserDto } from '@ourspots/shared';
 
 interface FlowState {

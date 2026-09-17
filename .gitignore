@@ -11,6 +11,8 @@ deploy.tgz
 data/
 apps/web/dev-dist/
 apps/api/prisma/*.db
+# Wird von "prisma generate" erzeugt, bei jedem Build neu.
+apps/api/src/generated/
 .vite/
 coverage/
 .env.development

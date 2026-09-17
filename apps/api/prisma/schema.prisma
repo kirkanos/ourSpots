@@ -9,12 +9,19 @@
 //    reicht ein Index auf (lat, lon) plus Haversine-Rechnung vollkommen.
 
 generator client {
-  provider = "prisma-client-js"
+  // Seit Prisma 7 loest "prisma-client" den alten Generator ab, und das
+  // Ausgabeverzeichnis ist Pflicht - erzeugt wird nicht mehr nach node_modules.
+  // moduleFormat bleibt auf cjs, damit NestJS nicht auf ESM umgestellt werden
+  // muss; die leere importFileExtension ergibt Importe ohne Endung, wie tsc sie
+  // fuer CommonJS erwartet.
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "cjs"
+  importFileExtension = ""
 }
 
 datasource db {
   provider = "mysql"
-  url      = env("DATABASE_URL")
 }
 
 model User {

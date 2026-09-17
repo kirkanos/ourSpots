@@ -71,6 +71,7 @@ Die IDs sind fest, ein erneuter Seed liefert also dieselben Links.
 | Alles typprüfen | `npm run typecheck` |
 | Datenbank ansehen | `npm run db:studio` |
 | Schema ändern | `apps/api/prisma/schema.prisma` bearbeiten, dann `npm run db:migrate -w @ourspots/api -- --name <beschreibung>` |
+| Prisma-Client neu erzeugen | `npm run db:generate -w @ourspots/api` (landet in `apps/api/src/generated/prisma`, nicht in `node_modules`) |
 | Alles stoppen | `npm run stop` |
 | Nur die Server (ohne Einrichtung) | `npm run dev:servers` |
 | Produktionsaufbau testen | `docker compose up -d --build` (eigener Stack, eigene Datenbank) |
