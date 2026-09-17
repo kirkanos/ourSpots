@@ -3,6 +3,9 @@ dist/
 build/
 .env
 .env.local
+# .env.enc gehoert bewusst ins Repo: verschluesselt, wird in der Pipeline
+# entschluesselt. .env.sample ebenfalls, als Vorlage.
+deploy.tgz
 *.log
 .DS_Store
 data/

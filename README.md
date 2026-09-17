@@ -4,7 +4,7 @@
 > photos on a map, shared with the people you travel with, works offline.
 
 Wohnmobil-Reisen planen, Stellplätze unterwegs erfassen und später wiederfinden.
-Läuft selbst gehostet unter `https://travel.kirkanos.net`, Anmeldung über Authelia (OIDC).
+Läuft selbst gehostet unter `https://spots.kirkanos.net`, Anmeldung über Authelia (OIDC).
 
 | Dokument | Inhalt |
 |---|---|
@@ -82,17 +82,19 @@ Authelia wird dafür nicht gebraucht. `npm run dev -- --reset` baut die Datenban
 neu auf.
 
 ```bash
-# Vollständiger Stack wie im Betrieb
-cp .env.example .env     # Werte eintragen
-docker compose up -d --build
+# Vollständiger Stack wie im Betrieb, lokal
+docker compose -f docker-compose.local.yml up -d --build   # http://localhost:8085
 ```
+
+Auf dem Server rollt Woodpecker bei jedem Push auf `main` aus – Einzelheiten in
+[docs/DEPLOY.md](docs/DEPLOY.md).
 
 | Zweck | Befehl |
 |---|---|
 | Alles typprüfen | `npm run typecheck` |
 | Datenbank ansehen | `npm run db:studio` |
 | Lokale Datenbank neu aufbauen | `npm run dev -- --reset` |
-| Stack neu bauen | `docker compose up -d --build` |
+| Stack neu bauen | `docker compose -f docker-compose.local.yml up -d --build` |
 | Alles stoppen | `npm run stop` |
 | Alles stoppen, auch den Stack | `npm run stop -- --all` |
 | Alles inklusive Daten löschen | `npm run stop -- --purge` |

@@ -163,7 +163,7 @@ ORS-Free-Tier liegt bei 2.000 Requests/Tag, das reicht damit locker.
 | **Erfassen (mobil)** | Großer Button „Hier bin ich": GPS-Position, Foto aus Kamera, Name, Bewertung – in unter 15 Sekunden erfasst; funktioniert offline |
 | **Tagebuch** | Tageseinträge, km-Stand, Tankungen, Auswertung Ø Verbrauch & Kosten |
 | **Einstellungen** | Fahrzeuge, Kartenlayer, Offline-Cache, Mitglieder einer Reise |
-| **Öffentliche Ansicht** | Read-only Route + Stellplätze + Fotos unter `https://travel.kirkanos.net/s/<token>`, ohne Login |
+| **Öffentliche Ansicht** | Read-only Route + Stellplätze + Fotos unter `https://spots.kirkanos.net/s/<token>`, ohne Login |
 
 ---
 
@@ -226,7 +226,7 @@ identity_providers:
         public: false
         authorization_policy: two_factor          # oder one_factor
         redirect_uris:
-          - https://travel.kirkanos.net/api/auth/callback
+          - https://spots.kirkanos.net/api/auth/callback
         scopes: [openid, profile, email, groups]
         grant_types: [authorization_code]
         response_types: [code]
@@ -249,8 +249,8 @@ services:
   web:   ./docker/web      nginx, statisches Build, /api → api:3000
 ```
 
-Env (`.env.example`): `DATABASE_URL`, `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`,
-`APP_URL=https://travel.kirkanos.net`, `SESSION_SECRET`, `ORS_API_KEY`, `NOMINATIM_URL`, `PHOTO_DIR`, `TILE_URL`.
+Env (`.env.sample`): `DATABASE_URL`, `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`,
+`APP_URL=https://spots.kirkanos.net`, `SESSION_SECRET`, `ORS_API_KEY`, `NOMINATIM_URL`, `PHOTO_DIR`, `TILE_URL`.
 
 Updates: `docker compose pull && docker compose up -d` — Prisma-Migrationen laufen beim
 API-Start automatisch (`prisma migrate deploy`).
@@ -271,7 +271,7 @@ API-Start automatisch (`prisma migrate deploy`).
 
 ## 12. Offene Punkte für dich
 
-- ~~Domain~~ → **travel.kirkanos.net** (gesetzt, siehe Abschnitt 9/10)
+- ~~Domain~~ → **spots.kirkanos.net** (gesetzt, siehe Abschnitt 9/10)
 - ~~Nominatim~~ → **öffentliche Instanz** (gesetzt). Zugriff nur serverseitig über `/api/geocode`, mit eigenem User-Agent, Rate-Limit 1 req/s und Ergebnis-Cache in der DB, damit die Nutzungsbedingungen eingehalten werden.
 - Soll ich Schritt 1–2 direkt bauen, sobald du das Konzept abgenickt hast?
 

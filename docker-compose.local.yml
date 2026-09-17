@@ -1,0 +1,77 @@
+# Vollständiger Aufbau zum lokalen Ausprobieren – so, wie er auf dem Server
+# läuft, aber ohne Traefik und mit veröffentlichtem Port.
+#
+#   docker compose -f docker-compose.local.yml --env-file .env.local up -d --build
+#
+# Eigenständig und nicht als override.yml, damit die Datei auf dem Server nicht
+# versehentlich mitgeladen wird.
+
+name: ourspots-local
+
+services:
+  db:
+    image: mariadb:11
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: ${MYSQL_DATABASE:-ourspots}
+      MARIADB_USER: ${MYSQL_USER:-ourspots}
+      MARIADB_PASSWORD: ${MYSQL_PASSWORD:-ourspots}
+      MARIADB_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-ourspots}
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/api/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      APP_URL: ${APP_URL:-http://localhost:8085}
+      DATABASE_URL: ${DATABASE_URL:-mysql://ourspots:ourspots@db:3306/ourspots}
+      OIDC_ISSUER: ${OIDC_ISSUER:-https://auth.kirkanos.net}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-ourspots}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-nur-lokal-ohne-bedeutung}
+      OIDC_REDIRECT_URI: ${OIDC_REDIRECT_URI:-http://localhost:8085/api/auth/callback}
+      OIDC_SCOPES: ${OIDC_SCOPES:-openid profile email groups}
+      SESSION_SECRET: ${SESSION_SECRET:-lokaler-entwicklungsschluessel-mindestens-32-zeichen}
+      SESSION_TTL_DAYS: 30
+      ORS_API_KEY: ${ORS_API_KEY:-}
+      ORS_BASE_URL: https://api.openrouteservice.org
+      NOMINATIM_URL: https://nominatim.openstreetmap.org
+      NOMINATIM_USER_AGENT: OurSpots-Test (lokal)
+      PHOTO_DIR: /data/photos
+      MAX_UPLOAD_MB: 25
+      LOG_LEVEL: log
+    volumes:
+      - photo_data:/data/photos
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/web/Dockerfile
+      args:
+        VITE_TILE_URL: https://tile.openstreetmap.org/{z}/{x}/{y}.png
+        VITE_TILE_ATTRIBUTION: "&copy; OpenStreetMap-Mitwirkende"
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "127.0.0.1:8085:80"
+
+volumes:
+  db_data:
+  photo_data:

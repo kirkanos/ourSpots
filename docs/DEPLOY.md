@@ -1,4 +1,9 @@
-# Inbetriebnahme auf travel.kirkanos.net
+# Deployment auf spots.kirkanos.net
+
+Das Deployment läuft wie bei den anderen Projekten über Woodpecker: Ein Push auf
+`main` entschlüsselt die Konfiguration, prüft den Code, lädt den Quelltext auf den
+Server und startet die systemd-Unit neu, die dort `docker compose up --build`
+fährt. Gebaut wird also auf dem Zielrechner, nicht in der CI.
 
 ## 1. Authelia vorbereiten
 
@@ -14,7 +19,7 @@ identity_providers:
         public: false
         authorization_policy: two_factor
         redirect_uris:
-          - https://travel.kirkanos.net/api/auth/callback
+          - https://spots.kirkanos.net/api/auth/callback
         scopes: [openid, profile, email, groups]
         grant_types: [authorization_code]
         response_types: [code]
@@ -24,73 +29,75 @@ identity_providers:
 
 Das Klartext-Secret kommt in die `.env` als `OIDC_CLIENT_SECRET`, der Hash zu Authelia.
 
-**Wichtig für später:** Sobald die öffentlichen Teilen-Links gebaut sind, müssen
-`/s/*` und `/api/public/*` im Reverse Proxy von der Forward-Auth ausgenommen
-werden – sonst verlangt Authelia auch von Leuten ohne Konto einen Login.
+**Wichtig:** `/s/*` und `/api/public/*` müssen ohne Forward-Auth erreichbar bleiben,
+sonst verlangt Authelia auch von Leuten ohne Konto einen Login und die
+Teilen-Links funktionieren nicht.
 
-## 2. Konfiguration
+## 2. Konfiguration verschlüsseln
 
 ```bash
-cp .env.example .env
+cp .env.sample .env
+# Werte eintragen, mindestens:
+#   MYSQL_PASSWORD / MYSQL_ROOT_PASSWORD  (frei wählen)
+#   DATABASE_URL                          (dasselbe Passwort eintragen)
+#   OIDC_CLIENT_SECRET                    (Klartext aus Schritt 1)
+#   SESSION_SECRET                        (openssl rand -hex 32)
+#   ORS_API_KEY                           (openrouteservice.org, kostenlos)
+
+sops --encrypt --input-type dotenv --output-type dotenv --output .env.enc .env
+git add .env.enc && git commit -m "Konfiguration"
 ```
 
-Auszufüllen:
+`.env` selbst ist in `.gitignore`; nur `.env.enc` gehört ins Repository. Die
+Pipeline entschlüsselt sie mit dem Woodpecker-Secret `sops_age_key`.
 
-| Variable | Woher |
+Drei Werte steuern das Deployment und stehen ebenfalls in der `.env`:
+
+| Variable | Bedeutung |
 |---|---|
-| `MYSQL_PASSWORD`, `MYSQL_ROOT_PASSWORD` | frei wählen, danach in `DATABASE_URL` eintragen |
-| `OIDC_ISSUER` | Basis-URL deiner Authelia-Instanz |
-| `OIDC_CLIENT_SECRET` | das Klartext-Secret von oben |
-| `SESSION_SECRET` | `openssl rand -hex 32` |
-| `ORS_API_KEY` | kostenloser Schlüssel von openrouteservice.org (erst ab Schritt 5 nötig) |
+| `SERVICE` | Verzeichnis `/services/$SERVICE`, Containernamen, systemd-Unit, Traefik-Router |
+| `HOST` | Domain für die Traefik-Regel |
+| `PORT` | Port im Webcontainer, auf den Traefik zeigt (80) |
 
-## 3. Starten
+## 3. Repository in Woodpecker aktivieren
+
+Das Repository aktivieren und prüfen, dass die beiden Secrets vorhanden sind –
+dieselben wie bei den anderen Projekten:
+
+| Secret | Inhalt |
+|---|---|
+| `sops_age_key` | privater age-Schlüssel zum Entschlüsseln der `.env.enc` |
+| `ssh_host_local` | Ziel für ssh/scp, z. B. `root@server` |
+
+Die Pipeline liegt in `.woodpecker/pipeline.yaml` und läuft nur bei Push auf `main`.
+
+## 4. Was beim Deploy passiert
+
+| Schritt | Inhalt |
+|---|---|
+| `Decrypt .env File` | `.env.enc` → `.env` |
+| `check` | `npm ci`, Prisma-Client, gemeinsames Paket, Typprüfung über alle drei Pakete, Produktionsbuild des Frontends |
+| `deploy files` | Quelltext als Archiv nach `/services/$SERVICE/` entpacken, systemd-Unit aus `template.service` schreiben und aktivieren |
+| `restart service` | `systemctl stop` und `start` – der Build läuft danach im Hintergrund |
+
+Abweichung zu den anderen Projekten: Statt einzelner `scp`-Aufrufe je Verzeichnis
+wandert ein `tar`-Archiv hinüber. Das Monorepo hat über hundert Dateien in drei
+Verzeichnissen, und die Ausschlüsse im Archiv verhindern, dass `node_modules`
+oder Build-Reste aus dem Prüfschritt mitgeschickt werden.
+
+Der erste Start dauert einige Minuten, weil der Server beide Images baut. Die
+Datenbank-Migrationen laufen automatisch beim Start des API-Containers.
+
+## 5. Zustand prüfen
 
 ```bash
-docker compose up -d --build
+ssh -p822 server
+systemctl status ourspots
+cd /services/ourspots && docker compose ps
+docker compose logs -f api
 ```
-
-Der API-Container wendet beim Start `prisma migrate deploy` an und startet erst
-danach. Ein Update besteht deshalb nur aus:
-
-```bash
-git pull && docker compose up -d --build
-```
-
-## 4. Reverse Proxy
-
-Der Web-Container veröffentlicht standardmäßig auf `127.0.0.1:8085` und bedient
-sowohl die App als auch `/api` (das er intern an den API-Container weiterreicht).
-Es genügt also, `travel.kirkanos.net` auf diesen einen Port zu leiten.
-
-Mit Traefik stattdessen den Port-Eintrag in `docker-compose.yml` durch Labels
-ersetzen:
-
-```yaml
-    labels:
-      - traefik.enable=true
-      - traefik.http.routers.ourspots.rule=Host(`travel.kirkanos.net`)
-      - traefik.http.routers.ourspots.entrypoints=websecure
-      - traefik.http.routers.ourspots.tls.certresolver=letsencrypt
-      - traefik.http.services.ourspots.loadbalancer.server.port=80
-```
-
-Der Proxy muss `X-Forwarded-Proto: https` setzen – die API markiert ihr
-Session-Cookie sonst nicht als `secure`. Für Foto-Uploads sollte das
-Größenlimit bei mindestens 30 MB liegen.
-
-## 5. Erste Anmeldung
-
-`https://travel.kirkanos.net` aufrufen und „Mit Authelia anmelden“ wählen. Beim
-ersten erfolgreichen Login legt die App das Konto automatisch an; Schlüssel ist
-der OIDC-`sub`, nicht die E-Mail-Adresse.
-
-Damit du jemanden zu einer Reise einladen kannst, muss diese Person sich einmal
-angemeldet haben – vorher existiert ihr Konto nicht.
 
 ## Sicherung
-
-Zwei Dinge sind zu sichern:
 
 | Was | Wo |
 |---|---|
@@ -100,11 +107,33 @@ Zwei Dinge sind zu sichern:
 Die Fotos liegen bewusst nicht in der Datenbank, aber ein Backup ohne sie ist
 unvollständig: die Datensätze verweisen dann auf fehlende Dateien.
 
+## Ohne Pipeline von Hand ausrollen
+
+Falls Woodpecker einmal nicht kann:
+
+```bash
+sops --decrypt --input-type dotenv --output-type dotenv --output .env .env.enc
+tar czf deploy.tgz --exclude=node_modules --exclude=dist --exclude=.git \
+  package.json package-lock.json tsconfig.base.json docker-compose.yml .dockerignore apps packages docker
+scp -P822 deploy.tgz .env server:/services/ourspots/
+ssh -p822 server "cd /services/ourspots && tar xzf deploy.tgz && rm deploy.tgz && systemctl restart ourspots"
+```
+
 ## Wenn etwas klemmt
 
 | Symptom | Ursache |
 |---|---|
-| `502 Bad Gateway` | API-Container ist nicht hochgekommen: `docker compose logs api` |
-| `Ungültige Konfiguration:` im Log | Eine `.env`-Variable fehlt oder hat einen unerlaubten Wert – die Meldung nennt sie |
-| Login endet mit „Der Login ist abgelaufen“ | `OIDC_REDIRECT_URI` weicht von der in Authelia hinterlegten ab, oder der Proxy verwirft Cookies |
-| Adresssuche antwortet nicht | Nominatim drosselt; die App hält selbst 1 Anfrage/Sekunde ein und cacht Ergebnisse 30 Tage |
+| Traefik zeigt 404 | Container läuft nicht oder `HOST` in der `.env` passt nicht zur aufgerufenen Domain |
+| `Ungültige Konfiguration:` im Log | Eine Variable fehlt oder hat einen unerlaubten Wert – die Meldung nennt sie |
+| Login endet mit „Der Login ist abgelaufen" | `OIDC_REDIRECT_URI` weicht von der in Authelia hinterlegten ab |
+| Adresssuche antwortet nicht | Nominatim drosselt; die App hält selbst 1 Anfrage/Sekunde ein und cacht 30 Tage |
+| Pipeline scheitert im Schritt `Decrypt` | Das Secret `sops_age_key` fehlt oder passt nicht zum Empfänger in `.env.enc` |
+
+## Lokal wie im Betrieb testen
+
+```bash
+docker compose -f docker-compose.local.yml up -d --build   # http://localhost:8085
+```
+
+Dieselben Images und dieselben Dockerfiles, aber ohne Traefik und mit
+veröffentlichtem Port. Beenden mit `npm run stop -- --all`.

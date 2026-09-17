@@ -85,15 +85,15 @@ if docker info >/dev/null 2>&1; then
   if [ "$ALL" = true ]; then
     step "Vollständigen Stack stoppen"
     if [ "$PURGE" = true ]; then
-      docker compose down -v
+      docker compose -f docker-compose.local.yml down -v
       info "Container, Datenbank und Fotos gelöscht."
     else
-      docker compose down
+      docker compose -f docker-compose.local.yml down
       info "Daten und Fotos bleiben erhalten."
     fi
-  elif docker compose ps --status running -q 2>/dev/null | grep -q .; then
+  elif docker compose -f docker-compose.local.yml ps --status running -q 2>/dev/null | grep -q .; then
     step "Hinweis"
-    info "Der vollständige Stack (docker compose) läuft noch."
+    info "Der vollständige Stack (docker-compose.local.yml) läuft noch."
     info "Auch beenden: npm run stop -- --all"
   fi
 else
