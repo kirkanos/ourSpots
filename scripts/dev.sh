@@ -83,12 +83,12 @@ fi
 
 # --- 4. Prisma-Client, Schema und Beispieldaten -----------------------------
 
-# Auf einem frisch geklonten Repo gibt es den generierten Client noch nicht –
-# ohne ihn scheitern Seed und API.
-if [ ! -d node_modules/.prisma/client ]; then
-  step "Prisma-Client erzeugen"
-  npm run db:generate -w @womo/api
-fi
+# Immer erzeugen statt auf das Verzeichnis zu prüfen: node_modules/.prisma/client
+# existiert schon nach dem Installieren, enthält aber nur einen Platzhalter, der
+# beim ersten Zugriff mit „did not initialize yet" abbricht. Der Lauf dauert
+# eine Sekunde.
+step "Prisma-Client erzeugen"
+npm run db:generate -w @womo/api
 
 # Die API bindet @womo/shared als gebautes Paket ein (das Frontend nutzt die
 # Quelle direkt). Auf einem frischen Klon gibt es dist/ noch nicht, und ohne das
