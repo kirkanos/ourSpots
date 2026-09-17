@@ -300,21 +300,43 @@ API-Start automatisch (`prisma migrate deploy`).
 | 2 Auth (OIDC/BFF gegen Authelia) | fertig |
 | 3 Reisen, Stellplätze, Karte, Suche und Filter | fertig |
 | 4 Mobile Erfassung, Foto-Pipeline | fertig (vorgezogen) |
-| 5 Routing über OpenRouteService | fertig (gegen echte ORS-Antworten noch ungeprüft, siehe unten) |
+| 5 Routing über OpenRouteService | fertig und gegen den echten Dienst geprüft |
 | 6 PWA und Offline-Erfassung | fertig |
 | 7 Tagebuch und Kosten | fertig |
 | 8 Teilen-Links, Import/Export | fertig |
 | 9 Feinschliff, lokale Entwicklungsumgebung | fertig |
 
-## 15. Offener Punkt: Routing ungeprüft
+## 15. Routing: Umzug auf api.heigit.org
 
-Die Anbindung an OpenRouteService ist vollständig gebaut – Anfrageaufbau,
-HGV-Profil mit Fahrzeugmaßen, Etappen, Optimierung, Cache und Fehlerbehandlung –
-aber mangels Schlüssel noch nie gegen den echten Dienst gelaufen. Alles andere in
-dieser Liste wurde end-to-end geprüft.
+OpenRouteService hat `api.openrouteservice.org` zugunsten von `api.heigit.org`
+aufgegeben (angekündigt 28.04.2026, Abschaltung 24.08.2026). Der bestehende
+Schlüssel gilt weiter, Anfragen und Antworten sind unverändert – nur die
+Adressen nicht:
 
-Zum Nachholen: kostenlosen Schlüssel auf openrouteservice.org holen, als
-`ORS_API_KEY` eintragen, API neu starten und in einer Reise „Route berechnen"
-drücken. Zu erwarten sind Distanz, Fahrzeit und eine Linie entlang der Straßen;
-bei hinterlegten Fahrzeugmaßen weist die Oberfläche das Profil als „mit
-Wohnmobil-Maßen" aus.
+| Zweck | Neue Adresse |
+|---|---|
+| Routenberechnung | `https://api.heigit.org/openrouteservice/v2/directions/...` |
+| Reihenfolgen-Optimierung | `https://api.heigit.org/vroom/v0` |
+
+Beide liegen unter verschiedenen Basispfaden, deshalb gibt es zwei Einstellungen
+(`ORS_BASE_URL` und `ORS_OPTIMIZATION_URL`) statt einer.
+
+Zwei Dinge fielen erst beim Test gegen den echten Dienst auf:
+
+1. **VROOM liefert ohne `options.g` keine Strecke,** nur Fahrzeiten. Der
+   Vorher-Nachher-Vergleich hätte dann die gesamte Strecke als Ersparnis
+   ausgewiesen. Die Anfrage setzt das Flag jetzt.
+2. **Etappen brauchen eine Verkettung.** Ursprünglich musste jede Etappe
+   mindestens zwei eigene Ziele haben, sonst wurde sie übersprungen – man hätte
+   jeden Übernachtungsort doppelt eintragen müssen. Jetzt führt eine Etappe vom
+   letzten Ziel der vorigen zum eigenen.
+
+Geprüfte Werte an der Beispielreise (Fahrzeug 2,85 m hoch, 3,5 t, Profil
+`driving-hgv`): Nürnberg–Bremen 510 km, Bremen–Greetsiel 152 km,
+Greetsiel–Husum 403 km. Der zweite Aufruf ohne `force` kam vollständig aus dem
+Cache.
+
+Eine Eigenheit des HGV-Profils: Es wendet Lkw-Beschränkungen an. Bei 3,5 t
+führt das mitunter zu Umwegen, die ein Wohnmobil nicht fahren müsste. Wer lieber
+kürzer als sicher fährt, kann das Fahrzeug aus der Reise entfernen – dann
+rechnet die App mit dem Pkw-Profil und weist das in der Oberfläche aus.

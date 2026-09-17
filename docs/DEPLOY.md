@@ -51,7 +51,7 @@ Teilen-Links funktionieren nicht.
 `.env.enc` liegt bereits im Repository: Datenbankpasswörter, Session-Schlüssel und
 das OIDC-Secret sind erzeugt und passen zum Hash in der Authelia-Konfiguration.
 
-Offen ist nur `ORS_API_KEY` (kostenlos auf openrouteservice.org). Zum Ergänzen:
+Der `ORS_API_KEY` ist eingetragen und gegen den Dienst geprüft. Zum Ändern:
 
 ```bash
 sops --decrypt --input-type dotenv --output-type dotenv --output .env .env.enc

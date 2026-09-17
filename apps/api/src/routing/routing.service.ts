@@ -70,7 +70,7 @@ export class RoutingService {
       if (group.waypoints.length < 2) {
         if (group.stage) {
           notes.push(
-            `Die Etappe „${group.stage.title ?? group.stage.seq + 1}“ hat weniger als zwei Ziele und wurde übersprungen.`,
+            `Der Etappe „${group.stage.title ?? group.stage.seq + 1}“ ist kein Ziel zugeordnet, sie wurde übersprungen.`,
           );
         }
         continue;
@@ -262,10 +262,27 @@ export class RoutingService {
       return [{ stage: null, waypoints }];
     }
 
-    return stages.map((stage) => ({
-      stage,
-      waypoints: waypoints.filter((wp) => wp.stageId === stage.id),
-    }));
+    // Eine Tagesetappe führt vom letzten Ziel des Vortags zum eigenen Ziel.
+    // Ohne diese Verkettung müsste jeder Übernachtungsort doppelt eingetragen
+    // werden – einmal als Ende der einen und einmal als Anfang der nächsten
+    // Etappe.
+    const groups: { stage: Stage | null; waypoints: Waypoint[] }[] = [];
+    let previousEnd: Waypoint | undefined;
+
+    for (const stage of stages) {
+      const own = waypoints.filter((wp) => wp.stageId === stage.id);
+      if (own.length === 0) {
+        groups.push({ stage, waypoints: [] });
+        continue;
+      }
+      groups.push({
+        stage,
+        waypoints: previousEnd ? [previousEnd, ...own] : own,
+      });
+      previousEnd = own[own.length - 1];
+    }
+
+    return groups;
   }
 
   /**

@@ -30,7 +30,14 @@ const envSchema = z.object({
   SESSION_TTL_DAYS: z.coerce.number().int().min(1).max(365).default(30),
 
   ORS_API_KEY: z.string().default(''),
-  ORS_BASE_URL: z.string().url().default('https://api.openrouteservice.org'),
+  /**
+   * api.openrouteservice.org wurde zugunsten von api.heigit.org aufgegeben
+   * (angekündigt am 28.04.2026, Abschaltung zum 24.08.2026). Dabei sind
+   * Routenberechnung und Optimierung unter verschiedene Basispfade gewandert,
+   * deshalb zwei Einstellungen statt einer.
+   */
+  ORS_BASE_URL: z.string().url().default('https://api.heigit.org/openrouteservice'),
+  ORS_OPTIMIZATION_URL: z.string().url().default('https://api.heigit.org/vroom/v0'),
 
   NOMINATIM_URL: z.string().url().default('https://nominatim.openstreetmap.org'),
   NOMINATIM_USER_AGENT: z.string().min(5),

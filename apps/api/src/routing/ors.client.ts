@@ -90,7 +90,7 @@ export class OrsClient {
     if (Object.keys(options).length) body.options = options;
 
     const data = await this.post<OrsDirectionsResponse>(
-      `/v2/directions/${profile}/json`,
+      `${this.config.ORS_BASE_URL.replace(/\/$/, '')}/v2/directions/${profile}/json`,
       body,
     );
 
@@ -122,10 +122,19 @@ export class OrsClient {
   ): Promise<OptimizeResult> {
     const profile = this.profileFor(vehicle);
 
-    const data = await this.post<OrsOptimizationResponse>('/optimization', {
-      jobs: vias.map((location, index) => ({ id: index + 1, location })),
-      vehicles: [{ id: 1, profile, start, end }],
-    });
+    // Die Optimierung liegt seit dem Umzug auf api.heigit.org unter einem
+    // eigenen Dienst (vroom), nicht mehr unter demselben Präfix wie die Routen.
+    const data = await this.post<OrsOptimizationResponse>(
+      this.config.ORS_OPTIMIZATION_URL.replace(/\/$/, ''),
+      {
+        jobs: vias.map((location, index) => ({ id: index + 1, location })),
+        vehicles: [{ id: 1, profile, start, end }],
+        // Ohne "g" antwortet VROOM nur mit Fahrzeiten und ohne Strecke – der
+        // Vorher-Nachher-Vergleich würde dann die gesamte Strecke als Ersparnis
+        // ausweisen.
+        options: { g: true },
+      },
+    );
 
     const route = data.routes?.[0];
     if (!route) {
@@ -145,14 +154,13 @@ export class OrsClient {
     };
   }
 
-  private async post<T>(path: string, body: unknown): Promise<T> {
+  private async post<T>(url: string, body: unknown): Promise<T> {
     if (!this.configured) {
       throw new ServiceUnavailableException(
         'Für die Routenberechnung fehlt der OpenRouteService-Schlüssel (ORS_API_KEY).',
       );
     }
 
-    const url = `${this.config.ORS_BASE_URL.replace(/\/$/, '')}${path}`;
     const response = await fetch(url, {
       method: 'POST',
       headers: {
