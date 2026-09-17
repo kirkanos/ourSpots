@@ -31,6 +31,9 @@ steps:
       # Produktionsbuild des Frontends – der fängt ab, was erst beim Bündeln
       # auffällt. Läuft vor dem Image-Build, damit eine kaputte Fassung gar
       # nicht erst in der Registry landet.
+      # Ohne openssl rät Prisma die Engine-Variante und warnt bei jedem Lauf.
+      # Im API-Image ist das Paket aus demselben Grund installiert.
+      - apt-get update -qq && apt-get install -y -qq --no-install-recommends openssl
       - npm ci --no-audit --no-fund
       - npx prisma generate --schema apps/api/prisma/schema.prisma
       - npm run build --workspace @ourspots/shared
@@ -63,11 +66,9 @@ steps:
       repo: images/ourspots-web
       dockerfile: docker/web/Dockerfile
       context: .
-      # Die Kartenquelle wird beim Bauen in das Bundle geschrieben, steht also
-      # hier und nicht in der .env des Servers.
-      build_args:
-        VITE_TILE_URL: https://tile.openstreetmap.org/{z}/{x}/{y}.png
-        VITE_TILE_ATTRIBUTION: "&copy; OpenStreetMap-Mitwirkende"
+      # Keine build_args: Kaniko reicht sie als Kommandozeilenargumente weiter
+      # und zerbricht an Werten mit Leerzeichen. Die Kartenquelle steht als
+      # Vorgabe in apps/web/src/lib/env.ts und ist dort dieselbe.
       username:
         from_secret: docker_username
       password:
