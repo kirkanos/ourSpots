@@ -1,15 +1,13 @@
 # syntax=docker/dockerfile:1
 
 # --- Build -----------------------------------------------------------------
-FROM node:22-bookworm-slim AS build
+FROM node:22-alpine AS build
 WORKDIR /app
 
-# Prisma leitet die passende Query-Engine aus der vorhandenen OpenSSL-Version
-# ab. Ohne das Paket raet es falsch, und der Client passt spaeter nicht zur
-# Laufzeitumgebung.
-RUN apt-get update \
- && apt-get install -y --no-install-recommends openssl ca-certificates \
- && rm -rf /var/lib/apt/lists/*
+# Prisma leitet die passende Engine-Variante aus der vorhandenen OpenSSL-Version
+# ab. Ohne das Paket raet es falsch, und der Schema-Engine fuer die Migrationen
+# passt spaeter nicht zur Laufzeitumgebung.
+RUN apk add --no-cache openssl ca-certificates
 
 COPY package.json package-lock.json tsconfig.base.json ./
 COPY packages/shared/package.json packages/shared/
@@ -32,15 +30,13 @@ RUN npm prune --omit=dev --workspace @ourspots/shared --workspace @ourspots/api 
  && npx --no-install prisma generate --config apps/api/prisma.config.ts
 
 # --- Laufzeit ---------------------------------------------------------------
-FROM node:22-bookworm-slim AS runtime
+FROM node:22-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 
 # tini sorgt dafuer, dass SIGTERM beim Node-Prozess ankommt und der Container
 # sauber stoppt statt nach zehn Sekunden getoetet zu werden.
-RUN apt-get update \
- && apt-get install -y --no-install-recommends tini openssl ca-certificates \
- && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache tini openssl ca-certificates
 
 COPY --chown=node:node --from=build /app/node_modules ./node_modules
 COPY --chown=node:node --from=build /app/package.json ./package.json
@@ -60,4 +56,4 @@ RUN chmod +x /usr/local/bin/entrypoint.sh \
 
 USER node
 EXPOSE 3000
-ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/entrypoint.sh"]
+ENTRYPOINT ["/sbin/tini", "--", "/usr/local/bin/entrypoint.sh"]

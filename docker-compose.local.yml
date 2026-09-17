@@ -1,10 +1,15 @@
 # Vollständiger Aufbau zum lokalen Ausprobieren – so, wie er auf dem Server
 # läuft, aber ohne Traefik und mit veröffentlichtem Port.
 #
-#   docker compose -f docker-compose.local.yml --env-file .env.local up -d --build
+#   docker compose -f docker-compose.local.yml up -d --build
 #
 # Eigenständig und nicht als override.yml, damit die Datei auf dem Server nicht
 # versehentlich mitgeladen wird.
+#
+# Alle Werte stehen hier bewusst ausgeschrieben statt als vorgabe:
+# Compose liest die .env im Projektverzeichnis von sich aus ein, und das ist im
+# Betrieb die entschlüsselte Produktivkonfiguration. Mit Platzhaltern liefe der
+# lokale Aufbau also mit echten Passwörtern und der Produktivadresse.
 
 name: ourspots-local
 
@@ -13,10 +18,10 @@ services:
     image: mariadb:11
     restart: unless-stopped
     environment:
-      MARIADB_DATABASE: ${MYSQL_DATABASE:-ourspots}
-      MARIADB_USER: ${MYSQL_USER:-ourspots}
-      MARIADB_PASSWORD: ${MYSQL_PASSWORD:-ourspots}
-      MARIADB_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-ourspots}
+      MARIADB_DATABASE: ourspots
+      MARIADB_USER: ourspots
+      MARIADB_PASSWORD: ourspots
+      MARIADB_ROOT_PASSWORD: ourspots
     command:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
@@ -40,16 +45,16 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
-      APP_URL: ${APP_URL:-http://localhost:8085}
-      DATABASE_URL: ${DATABASE_URL:-mysql://ourspots:ourspots@ourspots-db:3306/ourspots}
-      OIDC_ISSUER: ${OIDC_ISSUER:-https://auth.kirkanos.net}
-      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-ourspots}
-      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-nur-lokal-ohne-bedeutung}
-      OIDC_REDIRECT_URI: ${OIDC_REDIRECT_URI:-http://localhost:8085/api/auth/callback}
-      OIDC_SCOPES: ${OIDC_SCOPES:-openid profile email groups}
-      SESSION_SECRET: ${SESSION_SECRET:-lokaler-entwicklungsschluessel-mindestens-32-zeichen}
+      APP_URL: http://localhost:8085
+      DATABASE_URL: mysql://ourspots:ourspots@ourspots-db:3306/ourspots
+      OIDC_ISSUER: https://auth.kirkanos.net
+      OIDC_CLIENT_ID: ourspots
+      OIDC_CLIENT_SECRET: nur-lokal-ohne-bedeutung
+      OIDC_REDIRECT_URI: http://localhost:8085/api/auth/callback
+      OIDC_SCOPES: openid profile email groups
+      SESSION_SECRET: lokaler-entwicklungsschluessel-mindestens-32-zeichen
       SESSION_TTL_DAYS: 30
-      ORS_API_KEY: ${ORS_API_KEY:-}
+      ORS_API_KEY: 
       ORS_BASE_URL: https://api.openrouteservice.org
       NOMINATIM_URL: https://nominatim.openstreetmap.org
       NOMINATIM_USER_AGENT: OurSpots-Test (lokal)

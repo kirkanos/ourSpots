@@ -199,3 +199,8 @@ docker compose -f docker-compose.local.yml up -d --build   # http://localhost:80
 
 Dieselben Images und dieselben Dockerfiles, aber ohne Traefik und mit
 veröffentlichtem Port. Beenden mit `npm run stop -- --all`.
+
+Die Werte stehen in `docker-compose.local.yml` ausgeschrieben und nicht als
+Platzhalter: Compose liest die `.env` im Projektverzeichnis von sich aus ein, und
+das ist hier die entschlüsselte Produktivkonfiguration. Mit Platzhaltern liefe
+der lokale Aufbau sonst mit den echten Passwörtern.
