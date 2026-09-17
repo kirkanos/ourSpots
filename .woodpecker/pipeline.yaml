@@ -27,14 +27,54 @@ steps:
   - name: check
     image: node:22-bookworm-slim
     commands:
-      # Die Typprüfung deckt beide Anwendungen und das gemeinsame Paket ab; der
-      # Build des Frontends fängt zusätzlich Fehler ab, die erst beim Bündeln
-      # auffallen. Beides zusammen dauert unter zwei Minuten.
+      # Typprüfung über beide Anwendungen und das gemeinsame Paket, dazu der
+      # Produktionsbuild des Frontends – der fängt ab, was erst beim Bündeln
+      # auffällt. Läuft vor dem Image-Build, damit eine kaputte Fassung gar
+      # nicht erst in der Registry landet.
       - npm ci --no-audit --no-fund
       - npx prisma generate --schema apps/api/prisma/schema.prisma
       - npm run build --workspace @ourspots/shared
       - npm run typecheck
       - npm run build --workspace @ourspots/web
+    when:
+      - event: push
+
+  - name: build api image
+    image: woodpeckerci/plugin-kaniko
+    settings:
+      registry: registry.kirkanos.net
+      repo: images/ourspots-api
+      dockerfile: docker/api/Dockerfile
+      context: .
+      username:
+        from_secret: docker_username
+      password:
+        from_secret: docker_password
+      tags:
+        - latest
+        - ${CI_COMMIT_SHA:0:7}
+    when:
+      - event: push
+
+  - name: build web image
+    image: woodpeckerci/plugin-kaniko
+    settings:
+      registry: registry.kirkanos.net
+      repo: images/ourspots-web
+      dockerfile: docker/web/Dockerfile
+      context: .
+      # Die Kartenquelle wird beim Bauen in das Bundle geschrieben, steht also
+      # hier und nicht in der .env des Servers.
+      build_args:
+        VITE_TILE_URL: https://tile.openstreetmap.org/{z}/{x}/{y}.png
+        VITE_TILE_ATTRIBUTION: "&copy; OpenStreetMap-Mitwirkende"
+      username:
+        from_secret: docker_username
+      password:
+        from_secret: docker_password
+      tags:
+        - latest
+        - ${CI_COMMIT_SHA:0:7}
     when:
       - event: push
 
@@ -51,18 +91,15 @@ steps:
       - test -n "$PORT" || (echo "PORT ist leer" && exit 1)
       - test -n "$SSH_HOST_LOCAL" || (echo "SSH_HOST_LOCAL ist leer" && exit 1)
       - echo "Deploy target host=$SSH_HOST_LOCAL service=$SERVICE"
+      # Auf dem Server laufen die eben gebauten Images, festgenagelt auf diesen
+      # Commit – "latest" wäre nicht nachvollziehbar und bei einem Neustart
+      # womöglich schon eine andere Fassung.
+      - echo "IMAGE_TAG=${CI_COMMIT_SHA:0:7}" >> .env
       - export SSH_OPTS='-o BatchMode=yes -o RequestTTY=no -o ConnectTimeout=30 -o ConnectionAttempts=1 -o StrictHostKeyChecking=accept-new -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -p822'
       - export SCP_OPTS='-o BatchMode=yes -o ConnectTimeout=30 -o ConnectionAttempts=1 -o StrictHostKeyChecking=accept-new -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -P822'
       - timeout 60 sh -c "ssh -n -T $SSH_OPTS \"$SSH_HOST_LOCAL\" \"mkdir -p /services/$SERVICE\""
-      # Der Server baut die Images selbst, braucht also den Quelltext. Ein
-      # Archiv statt vieler scp-Aufrufe: das Monorepo hat über hundert Dateien,
-      # und die Ausschlüsse verhindern, dass node_modules oder Build-Reste aus
-      # dem vorigen Schritt mitwandern.
-      - echo "Quelltext packen"
-      - tar czf deploy.tgz --exclude=node_modules --exclude=dist --exclude=.git --exclude='*.tsbuildinfo' package.json package-lock.json tsconfig.base.json docker-compose.yml .dockerignore apps packages docker
-      - echo "Upload"
-      - timeout 300 sh -c "scp $SCP_OPTS deploy.tgz .env \"$SSH_HOST_LOCAL\":/services/$SERVICE/"
-      - timeout 120 sh -c "ssh -n -T $SSH_OPTS \"$SSH_HOST_LOCAL\" \"cd /services/$SERVICE && tar xzf deploy.tgz && rm deploy.tgz\""
+      - echo "Upload docker-compose.yml und .env"
+      - timeout 60 sh -c "scp $SCP_OPTS docker-compose.yml .env \"$SSH_HOST_LOCAL\":/services/$SERVICE/"
       - echo "Upload systemd unit"
       - sed -e "s/%SERVICE%/$SERVICE/g" template.service > "$SERVICE.service"
       - timeout 60 sh -c "scp $SCP_OPTS \"$SERVICE.service\" \"$SSH_HOST_LOCAL\":/etc/systemd/system"
@@ -82,7 +119,7 @@ steps:
       - test -n "$SSH_HOST_LOCAL" || (echo "SSH_HOST_LOCAL ist leer" && exit 1)
       - export SSH_OPTS='-o BatchMode=yes -o RequestTTY=no -o ConnectTimeout=30 -o ConnectionAttempts=1 -o StrictHostKeyChecking=accept-new -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -p822'
       - timeout 60 sh -c "ssh -n -T $SSH_OPTS \"$SSH_HOST_LOCAL\" \"systemctl stop $SERVICE\" || true"
-      - timeout 120 sh -c "ssh -n -T $SSH_OPTS \"$SSH_HOST_LOCAL\" \"systemctl start $SERVICE\""
-      - echo "Service restart done (Build laeuft im Hintergrund via systemd)"
+      - timeout 180 sh -c "ssh -n -T $SSH_OPTS \"$SSH_HOST_LOCAL\" \"systemctl start $SERVICE\""
+      - echo "Service restart done"
     when:
       - event: push

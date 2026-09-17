@@ -1,9 +1,16 @@
 # Deployment auf spots.kirkanos.net
 
-Das Deployment läuft wie bei den anderen Projekten über Woodpecker: Ein Push auf
-`main` entschlüsselt die Konfiguration, prüft den Code, lädt den Quelltext auf den
-Server und startet die systemd-Unit neu, die dort `docker compose up --build`
-fährt. Gebaut wird also auf dem Zielrechner, nicht in der CI.
+Das Deployment läuft über Woodpecker: Ein Push auf `main` entschlüsselt die
+Konfiguration, prüft den Code, baut beide Images und legt sie in
+`registry.kirkanos.net` ab. Auf dem Server landen nur zwei Dateien –
+`docker-compose.yml` und `.env` –, und die systemd-Unit holt die Images und
+startet die Container neu.
+
+Anders als bei `finance-tool` und `MagicPortal`, wo der Server den Quelltext
+bekommt und selbst baut: Das Monorepo hätte über hundert Dateien übertragen
+müssen, und ein Build auf dem Server dauert bei zwei Node-Images spürbar länger
+als das Holen fertiger Schichten. Das Kaniko-Muster ist dasselbe wie in
+`ci-build`.
 
 ## 1. Authelia vorbereiten
 
@@ -64,10 +71,17 @@ Drei Werte steuern das Deployment und stehen ebenfalls in der `.env`:
 Das Repository aktivieren und prüfen, dass die beiden Secrets vorhanden sind –
 dieselben wie bei den anderen Projekten:
 
-| Secret | Inhalt |
-|---|---|
-| `sops_age_key` | privater age-Schlüssel zum Entschlüsseln der `.env.enc` |
-| `ssh_host_local` | Ziel für ssh/scp, z. B. `root@server` |
+| Secret | Inhalt | Auch benutzt von |
+|---|---|---|
+| `sops_age_key` | privater age-Schlüssel zum Entschlüsseln der `.env.enc` | allen Projekten |
+| `ssh_host_local` | Ziel für ssh/scp, z. B. `root@server` | allen Projekten |
+| `docker_username` | Anmeldung an `registry.kirkanos.net` | `ci-build` |
+| `docker_password` | dazu das Passwort | `ci-build` |
+
+Die beiden Registry-Secrets sind bisher nur in `ci-build` im Einsatz. Sind sie
+dort am Repository hinterlegt und nicht organisationsweit, müssen sie für
+OurSpots ergänzt werden – sonst scheitern die beiden Build-Schritte an der
+Anmeldung.
 
 Die Pipeline liegt in `.woodpecker/pipeline.yaml` und läuft nur bei Push auf `main`.
 
@@ -77,16 +91,21 @@ Die Pipeline liegt in `.woodpecker/pipeline.yaml` und läuft nur bei Push auf `m
 |---|---|
 | `Decrypt .env File` | `.env.enc` → `.env` |
 | `check` | `npm ci`, Prisma-Client, gemeinsames Paket, Typprüfung über alle drei Pakete, Produktionsbuild des Frontends |
-| `deploy files` | Quelltext als Archiv nach `/services/$SERVICE/` entpacken, systemd-Unit aus `template.service` schreiben und aktivieren |
-| `restart service` | `systemctl stop` und `start` – der Build läuft danach im Hintergrund |
+| `build api image` | Kaniko baut `docker/api/Dockerfile` → `images/ourspots-api:latest` und `:<commit>` |
+| `build web image` | Kaniko baut `docker/web/Dockerfile` → `images/ourspots-web:latest` und `:<commit>` |
+| `deploy files` | `docker-compose.yml` und `.env` nach `/services/$SERVICE/`, systemd-Unit aktivieren |
+| `restart service` | `systemctl stop` und `start`; die Unit holt die Images und startet die Container |
 
-Abweichung zu den anderen Projekten: Statt einzelner `scp`-Aufrufe je Verzeichnis
-wandert ein `tar`-Archiv hinüber. Das Monorepo hat über hundert Dateien in drei
-Verzeichnissen, und die Ausschlüsse im Archiv verhindern, dass `node_modules`
-oder Build-Reste aus dem Prüfschritt mitgeschickt werden.
+Der Prüfschritt läuft bewusst vor dem Image-Build – so landet eine kaputte
+Fassung gar nicht erst in der Registry.
 
-Der erste Start dauert einige Minuten, weil der Server beide Images baut. Die
-Datenbank-Migrationen laufen automatisch beim Start des API-Containers.
+Ausgerollt wird nicht `latest`, sondern der Commit: Die Pipeline schreibt
+`IMAGE_TAG=<kurz-sha>` in die `.env`, bevor sie sie hochlädt. Damit ist
+nachvollziehbar, was läuft, und ein Neustart des Dienstes holt nicht
+versehentlich eine neuere Fassung. Ohne `IMAGE_TAG` fällt die Compose-Datei auf
+`latest` zurück.
+
+Die Datenbank-Migrationen laufen automatisch beim Start des API-Containers.
 
 ## 5. Zustand prüfen
 
@@ -109,14 +128,20 @@ unvollständig: die Datensätze verweisen dann auf fehlende Dateien.
 
 ## Ohne Pipeline von Hand ausrollen
 
-Falls Woodpecker einmal nicht kann:
+Falls Woodpecker einmal nicht kann – die Images müssen dann schon in der
+Registry liegen:
 
 ```bash
 sops --decrypt --input-type dotenv --output-type dotenv --output .env .env.enc
-tar czf deploy.tgz --exclude=node_modules --exclude=dist --exclude=.git \
-  package.json package-lock.json tsconfig.base.json docker-compose.yml .dockerignore apps packages docker
-scp -P822 deploy.tgz .env server:/services/ourspots/
-ssh -p822 server "cd /services/ourspots && tar xzf deploy.tgz && rm deploy.tgz && systemctl restart ourspots"
+echo "IMAGE_TAG=latest" >> .env
+scp -P822 docker-compose.yml .env server:/services/ourspots/
+ssh -p822 server "systemctl restart ourspots"
+```
+
+Zurück auf eine frühere Fassung, ohne etwas neu zu bauen:
+
+```bash
+ssh -p822 server "sed -i 's/^IMAGE_TAG=.*/IMAGE_TAG=<kurz-sha>/' /services/ourspots/.env && systemctl restart ourspots"
 ```
 
 ## Wenn etwas klemmt
@@ -128,6 +153,8 @@ ssh -p822 server "cd /services/ourspots && tar xzf deploy.tgz && rm deploy.tgz &
 | Login endet mit „Der Login ist abgelaufen" | `OIDC_REDIRECT_URI` weicht von der in Authelia hinterlegten ab |
 | Adresssuche antwortet nicht | Nominatim drosselt; die App hält selbst 1 Anfrage/Sekunde ein und cacht 30 Tage |
 | Pipeline scheitert im Schritt `Decrypt` | Das Secret `sops_age_key` fehlt oder passt nicht zum Empfänger in `.env.enc` |
+| Pipeline scheitert beim Image-Build | `docker_username`/`docker_password` fehlen für dieses Repository |
+| Server zieht ein altes Image | `IMAGE_TAG` in `/services/$SERVICE/.env` prüfen |
 
 ## Lokal wie im Betrieb testen
 

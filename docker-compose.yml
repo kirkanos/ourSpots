@@ -1,10 +1,11 @@
 # OurSpots auf dem Server.
 #
-# Gebaut und gestartet wird über die systemd-Unit aus template.service, die in
-# /services/$SERVICE/ ein "docker compose up --build" fährt. Veröffentlicht wird
-# nichts direkt – den Zugang regelt Traefik über das gemeinsame Netz.
+# Die Images baut die Pipeline und legt sie in registry.kirkanos.net ab; hier
+# werden sie nur noch geholt. Auf dem Server liegen deshalb genau zwei Dateien:
+# diese und die .env. Gestartet wird über die systemd-Unit aus template.service.
 #
-# Zum lokalen Ausprobieren des vollständigen Aufbaus: docker-compose.local.yml
+# Veröffentlicht wird nichts direkt – den Zugang regelt Traefik.
+# Zum lokalen Bauen aus dem Quelltext: docker-compose.local.yml
 
 name: ${SERVICE:-ourspots}
 
@@ -40,9 +41,9 @@ services:
       start_period: 30s
 
   api:
-    build:
-      context: .
-      dockerfile: docker/api/Dockerfile
+    # IMAGE_TAG schreibt die Pipeline beim Ausrollen in die .env – der Server
+    # läuft damit auf genau dem Commit, der gerade gebaut wurde.
+    image: registry.kirkanos.net/images/ourspots-api:${IMAGE_TAG:-latest}
     container_name: ${SERVICE}-api
     restart: unless-stopped
     depends_on:
@@ -81,12 +82,7 @@ services:
       start_period: 60s
 
   web:
-    build:
-      context: .
-      dockerfile: docker/web/Dockerfile
-      args:
-        VITE_TILE_URL: ${TILE_URL}
-        VITE_TILE_ATTRIBUTION: ${TILE_ATTRIBUTION}
+    image: registry.kirkanos.net/images/ourspots-web:${IMAGE_TAG:-latest}
     container_name: ${SERVICE}
     restart: unless-stopped
     depends_on:
