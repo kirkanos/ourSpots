@@ -125,6 +125,27 @@ cd /services/ourspots && docker compose ps
 docker compose logs -f api
 ```
 
+## Netzwerk
+
+Alle drei Container hängen im `traefik-network`, damit der Monitoring-Stack sie
+erreicht. Geroutet wird trotzdem nur der Webcontainer – Datenbank und API tragen
+`traefik.enable=false`.
+
+Weil in diesem Netz auch die Container anderer Projekte laufen, sind die
+Dienstnamen `db` und `api` dort nicht mehr eindeutig. Beide bekommen deshalb
+einen eigenen Alias, und sowohl nginx als auch die Datenbankverbindung sprechen
+diesen an:
+
+| Container | Alias | Wird angesprochen von |
+|---|---|---|
+| Datenbank | `ourspots-db` | der API über `DATABASE_URL` |
+| API | `ourspots-api` | nginx über `proxy_pass` |
+
+Das hat eine Kehrseite: Die Datenbank ist damit für jeden Container im
+`traefik-network` erreichbar, nicht mehr nur für die eigene API. Nach außen
+ändert sich nichts – veröffentlicht wird kein Port –, aber der Schutz ist jetzt
+allein das Passwort.
+
 ## Sicherung
 
 | Was | Wo |

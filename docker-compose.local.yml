@@ -22,6 +22,10 @@ services:
       - --collation-server=utf8mb4_unicode_ci
     volumes:
       - db_data:/var/lib/mysql
+    networks:
+      default:
+        aliases:
+          - ourspots-db
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 10s
@@ -41,7 +45,7 @@ services:
       NODE_ENV: production
       PORT: 3000
       APP_URL: ${APP_URL:-http://localhost:8085}
-      DATABASE_URL: ${DATABASE_URL:-mysql://ourspots:ourspots@db:3306/ourspots}
+      DATABASE_URL: ${DATABASE_URL:-mysql://ourspots:ourspots@ourspots-db:3306/ourspots}
       OIDC_ISSUER: ${OIDC_ISSUER:-https://auth.kirkanos.net}
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-ourspots}
       OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-nur-lokal-ohne-bedeutung}
@@ -58,6 +62,10 @@ services:
       LOG_LEVEL: log
     volumes:
       - photo_data:/data/photos
+    networks:
+      default:
+        aliases:
+          - ourspots-api
 
   web:
     build:
