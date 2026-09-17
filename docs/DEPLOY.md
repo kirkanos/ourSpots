@@ -105,6 +105,18 @@ Die Pipeline liegt in `.woodpecker/pipeline.yaml` und läuft nur bei Push auf `m
 | `deploy files` | `docker-compose.yml` und `.env` nach `/services/$SERVICE/`, systemd-Unit aktivieren |
 | `restart service` | `systemctl stop` und `start`; die Unit holt die Images und startet die Container |
 
+Die Unit räumt vor dem Start mit `docker compose down --remove-orphans` auf.
+Das ist nötig, wenn ein Dienst in der Compose-Datei umbenannt wurde: Der alte
+Container läuft dann unter einem Namen weiter, den der neue beansprucht, und
+`up` scheitert am Namenskonflikt. Benannte Volumes bleiben unberührt, `down`
+ohne `-v` fasst sie nicht an.
+
+Zu beachten: Die Pipeline ruft nur `systemctl start` auf und wartet nicht auf
+den Container-Start. Ein Fehler im `docker compose up` färbt deshalb **nicht**
+auf die Pipeline ab – sie meldet Erfolg, obwohl die App nicht läuft. Nach einem
+Deploy, der etwas an Compose-Datei oder Unit ändert, lohnt ein Blick auf
+`https://spots.kirkanos.net/api/health`.
+
 Der Prüfschritt läuft bewusst vor dem Image-Build – so landet eine kaputte
 Fassung gar nicht erst in der Registry.
 

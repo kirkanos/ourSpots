@@ -6,8 +6,17 @@ BindsTo=docker.service
 [Service]
 Restart=always
 WorkingDirectory=/services/%SERVICE%/
+# --remove-orphans raeumt Container weg, die es in der Compose-Datei nicht mehr
+# gibt - etwa nach dem Umbenennen eines Dienstes. Ohne das bleiben sie unter
+# ihrem alten Namen liegen und der neue Container scheitert am Namenskonflikt.
+# Das Abraeumen muss VOR dem Start abgeschlossen sein; in einem einzigen
+# "up --remove-orphans" legt Compose die neuen Container an, bevor die alten
+# entfernt sind.
+#
+# Benannte Volumes bleiben dabei erhalten: "down" ohne -v fasst sie nicht an.
+ExecStartPre=/usr/bin/docker compose down --remove-orphans
 ExecStart=/usr/bin/docker compose up --force-recreate --pull always
-ExecStop=/usr/bin/docker compose down
+ExecStop=/usr/bin/docker compose down --remove-orphans
 
 [Install]
 WantedBy=multi-user.target
