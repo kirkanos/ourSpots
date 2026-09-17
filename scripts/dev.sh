@@ -90,6 +90,12 @@ if [ ! -d node_modules/.prisma/client ]; then
   npm run db:generate -w @womo/api
 fi
 
+# Die API bindet @womo/shared als gebautes Paket ein (das Frontend nutzt die
+# Quelle direkt). Auf einem frischen Klon gibt es dist/ noch nicht, und ohne das
+# findet die API das Modul nicht.
+step "Gemeinsames Paket bauen"
+npm run build -w @womo/shared
+
 step "Schema aktualisieren"
 # Bewusst "migrate deploy" statt "migrate dev": deploy wendet nur vorhandene
 # Migrationen an und fragt nie nach – ein Startskript darf nicht auf eine
