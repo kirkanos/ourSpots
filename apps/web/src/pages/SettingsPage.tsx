@@ -1,24 +1,170 @@
 import { useRef, useState } from 'react';
 import { v7 as uuidv7 } from 'uuid';
-import { vehicleInputSchema, type VehicleDto, type VehicleInput } from '@ourspots/shared';
 import {
+  vehicleInputSchema,
+  type HomeDto,
+  type HomeInput,
+  type VehicleDto,
+  type VehicleInput,
+} from '@ourspots/shared';
+import {
+  useClearHome,
   useDeleteVehicle,
   useImportSpots,
+  useMe,
   useSaveVehicle,
+  useSetHome,
   useTrips,
   useVehicles,
 } from '../api/hooks';
 import { ErrorState, Loading } from '../components/States';
 import { IconPlus, IconTrash } from '../components/Icons';
+import { LocationField } from '../components/LocationField';
 import { OfflineSettings } from '../components/OfflineSettings';
+import { formatCoords } from '../lib/format';
 
 export function SettingsPage() {
   return (
     <div className="page stack">
       <h1>Einstellungen</h1>
+      <HomeSection />
       <VehicleSection />
       <ImportSection />
       <OfflineSettings />
+    </div>
+  );
+}
+
+// --- Zuhause ----------------------------------------------------------------
+
+function HomeSection() {
+  const me = useMe();
+  const save = useSetHome();
+  const clear = useClearHome();
+  const home = me.data?.home ?? null;
+
+  const [editing, setEditing] = useState(false);
+
+  return (
+    <div className="card stack">
+      <div className="row row--between">
+        <h2>Zuhause</h2>
+        {!editing && (
+          <button type="button" className="btn btn--ghost btn--small" onClick={() => setEditing(true)}>
+            {home ? 'Ändern' : 'Festlegen'}
+          </button>
+        )}
+      </div>
+      <p className="muted small">
+        Von hier starten die meisten Reisen, und hierhin führen sie zurück. In der Routenplanung
+        lässt sich die Adresse dann mit einem Klick als Start oder Ziel übernehmen.
+      </p>
+
+      {me.isPending && <Loading />}
+
+      {home && !editing && (
+        <div>
+          <strong>{home.name}</strong>
+          <div className="small muted">{home.address ?? formatCoords(home.lat, home.lon)}</div>
+        </div>
+      )}
+
+      {!home && !editing && !me.isPending && (
+        <p className="muted">Noch keine Heimatadresse hinterlegt.</p>
+      )}
+
+      {editing && (
+        <HomeForm
+          initial={home}
+          saving={save.isPending}
+          error={save.error}
+          onCancel={() => setEditing(false)}
+          onSubmit={(input) => save.mutate(input, { onSuccess: () => setEditing(false) })}
+        />
+      )}
+
+      {home && !editing && (
+        <div>
+          <button
+            type="button"
+            className="btn btn--danger btn--small"
+            disabled={clear.isPending}
+            onClick={() => {
+              if (window.confirm('Heimatadresse entfernen?')) clear.mutate();
+            }}
+          >
+            Entfernen
+          </button>
+        </div>
+      )}
+      {clear.error != null && <ErrorState error={clear.error} />}
+    </div>
+  );
+}
+
+function HomeForm({
+  initial,
+  saving,
+  error,
+  onSubmit,
+  onCancel,
+}: {
+  initial: HomeDto | null;
+  saving: boolean;
+  error: unknown;
+  onSubmit: (input: HomeInput) => void;
+  onCancel: () => void;
+}) {
+  const [name, setName] = useState(initial?.name ?? 'Zuhause');
+  const [position, setPosition] = useState<{ lat: number; lon: number; address: string | null } | null>(
+    initial ? { lat: initial.lat, lon: initial.lon, address: initial.address } : null,
+  );
+
+  return (
+    <div className="card stack" style={{ background: 'var(--surface-alt)' }}>
+      <div className="field">
+        <label htmlFor="home-name">Bezeichnung</label>
+        <input
+          id="home-name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="z. B. Zuhause"
+        />
+      </div>
+      <LocationField
+        lat={position?.lat ?? null}
+        lon={position?.lon ?? null}
+        address={position?.address ?? null}
+        onChange={(value) =>
+          setPosition((prev) => ({
+            lat: value.lat,
+            lon: value.lon,
+            address: value.address !== undefined ? value.address : (prev?.address ?? null),
+          }))
+        }
+      />
+      {error != null && <ErrorState error={error} />}
+      <div className="row">
+        <button
+          type="button"
+          className="btn"
+          disabled={saving || !position || name.trim() === ''}
+          onClick={() => {
+            if (!position) return;
+            onSubmit({
+              name: name.trim(),
+              lat: position.lat,
+              lon: position.lon,
+              address: position.address,
+            });
+          }}
+        >
+          {saving ? 'Wird gespeichert …' : 'Speichern'}
+        </button>
+        <button type="button" className="btn btn--ghost" onClick={onCancel}>
+          Abbrechen
+        </button>
+      </div>
     </div>
   );
 }

@@ -43,8 +43,15 @@ export function crosshairIcon(): L.DivIcon {
   });
 }
 
+const WAYPOINT_COLORS: Record<string, string> = {
+  start: '#2f9e7e',
+  end: '#b3261e',
+  /** Rastort einer Etappe – bewusst anders als ein freies Zwischenziel. */
+  stage: '#9e6b2f',
+};
+
 export function waypointIcon(index: number, kind: string): L.DivIcon {
-  const color = kind === 'start' ? '#2f9e7e' : kind === 'end' ? '#b3261e' : '#1f6f5c';
+  const color = WAYPOINT_COLORS[kind] ?? '#1f6f5c';
   return L.divIcon({
     className: 'waypoint-marker',
     html: `<svg width="26" height="26" viewBox="0 0 26 26" xmlns="http://www.w3.org/2000/svg">

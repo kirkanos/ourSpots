@@ -64,6 +64,13 @@ export const IconPin = ({ className }: IconProps) => (
   </svg>
 );
 
+export const IconHome = ({ className }: IconProps) => (
+  <svg {...base} className={className}>
+    <path d="M4 10.5 12 4l8 6.5V19a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-8.5Z" />
+    <path d="M9.5 20v-6h5v6" />
+  </svg>
+);
+
 export const IconCamera = ({ className }: IconProps) => (
   <svg {...base} className={className}>
     <path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z" />

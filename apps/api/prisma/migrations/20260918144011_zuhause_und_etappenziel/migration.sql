@@ -1,0 +1,10 @@
+-- AlterTable
+ALTER TABLE `Stage` ADD COLUMN `address` VARCHAR(500) NULL,
+    ADD COLUMN `lat` DOUBLE NULL,
+    ADD COLUMN `lon` DOUBLE NULL;
+
+-- AlterTable
+ALTER TABLE `User` ADD COLUMN `homeAddress` VARCHAR(500) NULL,
+    ADD COLUMN `homeLat` DOUBLE NULL,
+    ADD COLUMN `homeLon` DOUBLE NULL,
+    ADD COLUMN `homeName` VARCHAR(200) NULL;

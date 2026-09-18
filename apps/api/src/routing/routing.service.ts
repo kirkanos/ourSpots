@@ -13,6 +13,27 @@ import { TripsService } from '../trips/trips.service';
 import { newId } from '../common/ids';
 import { hasDimensions, OrsClient } from './ors.client';
 
+interface RoutePoint {
+  lat: number;
+  lon: number;
+}
+
+/** Eine Teilroute: die Etappe, ihr Titel fuer die Anzeige und ihre Punkte. */
+interface RouteGroup {
+  stage: Stage | null;
+  title: string | null;
+  points: RoutePoint[];
+}
+
+function toPoint(wp: Waypoint): RoutePoint {
+  return { lat: wp.lat, lon: wp.lon };
+}
+
+/** Der Rastort einer Etappe – nur vollstaendige Koordinaten zaehlen. */
+function stageStop(stage: Stage): RoutePoint | null {
+  return stage.lat != null && stage.lon != null ? { lat: stage.lat, lon: stage.lon } : null;
+}
+
 @Injectable()
 export class RoutingService {
   private readonly logger = new Logger(RoutingService.name);
@@ -67,18 +88,16 @@ export class RoutingService {
     let profile = this.ors.profileFor(vehicle);
 
     for (const group of groups) {
-      if (group.waypoints.length < 2) {
+      if (group.points.length < 2) {
         if (group.stage) {
           notes.push(
-            `Der Etappe „${group.stage.title ?? group.stage.seq + 1}“ ist kein Ziel zugeordnet, sie wurde übersprungen.`,
+            `Der Etappe „${group.stage.title ?? group.stage.seq + 1}“ fehlt ein Rastort, sie wurde übersprungen.`,
           );
         }
         continue;
       }
 
-      const coordinates = group.waypoints.map(
-        (wp) => [wp.lon, wp.lat] as [number, number],
-      );
+      const coordinates = group.points.map((p) => [p.lon, p.lat] as [number, number]);
       const hash = this.hashFor(coordinates, profile, options);
 
       const cached = options.force
@@ -88,7 +107,7 @@ export class RoutingService {
       if (cached) {
         legs.push({
           stageId: group.stage?.id ?? null,
-          stageTitle: group.stage?.title ?? null,
+          stageTitle: group.title,
           distanceM: cached.distanceM,
           durationS: cached.durationS,
           geometry: cached.geometry,
@@ -132,7 +151,7 @@ export class RoutingService {
 
       legs.push({
         stageId: group.stage?.id ?? null,
-        stageTitle: group.stage?.title ?? null,
+        stageTitle: group.title,
         distanceM: result.distanceM,
         durationS: result.durationS,
         geometry: result.geometry,
@@ -143,7 +162,7 @@ export class RoutingService {
 
     if (legs.length === 0) {
       throw new BadRequestException(
-        'Keine der Etappen hat genug Ziele für eine Route. Ordne den Etappen mindestens je zwei Ziele zu.',
+        'Keine der Etappen ergibt eine Strecke. Lege für jede Etappe einen Rastort fest.',
       );
     }
 
@@ -174,12 +193,21 @@ export class RoutingService {
       where: { id: tripId },
       include: {
         vehicle: true,
+        stages: { orderBy: { seq: 'asc' } },
         waypoints: {
           where: options.stageId ? { stageId: options.stageId } : {},
           orderBy: { seq: 'asc' },
         },
       },
     });
+
+    // Traegt die Reise ihre Rastorte in den Etappen, ist deren Reihenfolge das,
+    // was umsortiert werden soll – die Wegpunkte sind dann nur noch Start und
+    // Ziel.
+    const stagesWithStop = trip.stages.filter((stage) => stageStop(stage) !== null);
+    if (!options.stageId && stagesWithStop.length >= 2) {
+      return this.optimizeStages(trip.waypoints, stagesWithStop, trip.vehicle);
+    }
 
     const waypoints = trip.waypoints;
     if (waypoints.length < 4) {
@@ -214,10 +242,65 @@ export class RoutingService {
     // Festgepinnte Ziele hinten anfügen, damit kein Ziel verlorengeht.
     const proposal = [first, ...reordered, ...pinned, last];
 
-    const current = await this.currentDistance(waypoints, trip.vehicle);
+    const current = await this.currentDistance(waypoints.map(toPoint), trip.vehicle);
 
     return {
+      target: 'waypoints',
       waypointIds: proposal.map((wp) => wp.id),
+      stageIds: [],
+      distanceM: result.distanceM,
+      durationS: result.durationS,
+      savedM: Math.max(0, current - result.distanceM),
+    };
+  }
+
+  /**
+   * Sucht eine kuerzere Reihenfolge der Etappen. Start und Ziel der Reise
+   * bleiben fest – sie sind es ja gerade, die den Rahmen vorgeben.
+   */
+  private async optimizeStages(
+    waypoints: Waypoint[],
+    stages: Stage[],
+    vehicle: Parameters<OrsClient['route']>[0]['vehicle'],
+  ): Promise<OptimizeResultDto> {
+    const start = waypoints.find((wp) => wp.kind === 'start');
+    const end = [...waypoints].reverse().find((wp) => wp.kind === 'end');
+    if (!start || !end) {
+      throw new BadRequestException(
+        'Zum Optimieren braucht es einen festen Start und ein festes Ziel.',
+      );
+    }
+
+    const result = await this.ors.optimize(
+      [start.lon, start.lat],
+      [end.lon, end.lat],
+      stages.map((stage) => {
+        const stop = stageStop(stage)!;
+        return [stop.lon, stop.lat] as [number, number];
+      }),
+      vehicle,
+    );
+
+    const reordered = result.order
+      .map((index) => stages[index])
+      .filter((stage): stage is Stage => stage !== undefined);
+
+    // Falls der Dienst eine Etappe unterschlaegt, haengen wir sie hinten an –
+    // lieber eine ungeschickte Reihenfolge als eine verlorene Etappe.
+    const missing = stages.filter((stage) => !reordered.includes(stage));
+    const proposal = [...reordered, ...missing];
+
+    const currentOrder: RoutePoint[] = [
+      toPoint(start),
+      ...stages.map((stage) => stageStop(stage)!),
+      toPoint(end),
+    ];
+    const current = await this.currentDistance(currentOrder, vehicle);
+
+    return {
+      target: 'stages',
+      waypointIds: [],
+      stageIds: proposal.map((stage) => stage.id),
       distanceM: result.distanceM,
       durationS: result.durationS,
       savedM: Math.max(0, current - result.distanceM),
@@ -226,12 +309,12 @@ export class RoutingService {
 
   /** Strecke der aktuellen Reihenfolge, für den Vorher-Nachher-Vergleich. */
   private async currentDistance(
-    waypoints: Waypoint[],
+    points: RoutePoint[],
     vehicle: Parameters<OrsClient['route']>[0]['vehicle'],
   ): Promise<number> {
     try {
       const result = await this.ors.route({
-        coordinates: waypoints.map((wp) => [wp.lon, wp.lat] as [number, number]),
+        coordinates: points.map((p) => [p.lon, p.lat] as [number, number]),
         preference: 'recommended',
         avoidTollways: false,
         avoidFerries: false,
@@ -246,42 +329,69 @@ export class RoutingService {
     }
   }
 
+  /**
+   * Zerlegt die Reise in Teilrouten.
+   *
+   * Ohne Etappen entsteht eine durchgehende Strecke ueber alle Wegpunkte.
+   * Mit Etappen gilt die Kette Start → Etappe 1 → Etappe 2 → … → Ziel: Jede
+   * Etappe endet an ihrem eigenen Rastort und beginnt dort, wo die vorige
+   * geendet hat. Ohne diese Verkettung muesste jeder Uebernachtungsort doppelt
+   * eingetragen werden – einmal als Ende der einen und einmal als Anfang der
+   * naechsten Etappe.
+   */
   private groupWaypoints(
     waypoints: Waypoint[],
     stages: Stage[],
     onlyStageId: string | null,
-  ): { stage: Stage | null; waypoints: Waypoint[] }[] {
-    if (onlyStageId) {
-      const stage = stages.find((s) => s.id === onlyStageId) ?? null;
-      return [{ stage, waypoints: waypoints.filter((wp) => wp.stageId === onlyStageId) }];
+  ): RouteGroup[] {
+    const start = waypoints.find((wp) => wp.kind === 'start') ?? null;
+    const end = [...waypoints].reverse().find((wp) => wp.kind === 'end') ?? null;
+
+    const usesStages =
+      stages.length > 0 &&
+      stages.some((stage) => stageStop(stage) !== null || waypoints.some((wp) => wp.stageId === stage.id));
+
+    if (!usesStages) {
+      return [{ stage: null, title: null, points: waypoints.map(toPoint) }];
     }
 
-    const assigned = waypoints.filter((wp) => wp.stageId !== null);
-    // Ohne Etappenzuordnung wird die Reise als eine durchgehende Route gerechnet.
-    if (assigned.length === 0 || stages.length === 0) {
-      return [{ stage: null, waypoints }];
-    }
-
-    // Eine Tagesetappe führt vom letzten Ziel des Vortags zum eigenen Ziel.
-    // Ohne diese Verkettung müsste jeder Übernachtungsort doppelt eingetragen
-    // werden – einmal als Ende der einen und einmal als Anfang der nächsten
-    // Etappe.
-    const groups: { stage: Stage | null; waypoints: Waypoint[] }[] = [];
-    let previousEnd: Waypoint | undefined;
+    const groups: RouteGroup[] = [];
+    let previous: RoutePoint | null = start ? toPoint(start) : null;
 
     for (const stage of stages) {
-      const own = waypoints.filter((wp) => wp.stageId === stage.id);
-      if (own.length === 0) {
-        groups.push({ stage, waypoints: [] });
+      // Zugeordnete Wegpunkte sind Zwischenstopps des Tages, der Rastort der
+      // Etappe steht am Ende.
+      const own = waypoints.filter((wp) => wp.stageId === stage.id).map(toPoint);
+      const stop = stageStop(stage);
+      const points = stop ? [...own, stop] : own;
+
+      if (points.length === 0) {
+        groups.push({ stage, title: stage.title, points: [] });
         continue;
       }
+
       groups.push({
         stage,
-        waypoints: previousEnd ? [previousEnd, ...own] : own,
+        title: stage.title,
+        points: previous ? [previous, ...points] : points,
       });
-      previousEnd = own[own.length - 1];
+      previous = points[points.length - 1]!;
     }
 
+    // Wegpunkte ohne Etappe liegen auf dem Weg zum Ziel – etwa der Rueckweg
+    // nach Hause, den niemand als eigene Etappe anlegt.
+    if (end) {
+      const loose = waypoints
+        .filter((wp) => wp.stageId === null && wp !== start && wp !== end)
+        .map(toPoint);
+      groups.push({
+        stage: null,
+        title: 'Zum Ziel',
+        points: previous ? [previous, ...loose, toPoint(end)] : [...loose, toPoint(end)],
+      });
+    }
+
+    if (onlyStageId) return groups.filter((group) => group.stage?.id === onlyStageId);
     return groups;
   }
 

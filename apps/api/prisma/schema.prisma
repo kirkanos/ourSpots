@@ -33,6 +33,13 @@ model User {
   createdAt   DateTime  @default(now())
   lastLoginAt DateTime?
 
+  /// Heimatadresse: Ausgangs- und meist auch Endpunkt der Reisen. Entweder
+  /// stehen Koordinaten und Name zusammen, oder das Feld ist ungesetzt.
+  homeName    String?   @db.VarChar(200)
+  homeLat     Float?    @db.Double
+  homeLon     Float?    @db.Double
+  homeAddress String?   @db.VarChar(500)
+
   sessions     Session[]
   vehicles     Vehicle[]
   ownedTrips   Trip[]        @relation("TripOwner")
@@ -130,6 +137,12 @@ model Stage {
   title  String?   @db.VarChar(200)
   date   DateTime? @db.Date
   notes  String?   @db.Text
+
+  /// Rastort, an dem die Etappe endet. Optional: Eine Etappe kann ihr Ziel
+  /// auch ueber zugeordnete Wegpunkte bekommen.
+  lat     Float?  @db.Double
+  lon     Float?  @db.Double
+  address String? @db.VarChar(500)
 
   waypoints Waypoint[]
   routes    Route[]

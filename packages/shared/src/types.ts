@@ -10,11 +10,20 @@ import type {
 
 /** Was die API zurueckliefert – bewusst getrennt von den Eingabe-Schemas. */
 
+export interface HomeDto {
+  name: string;
+  lat: number;
+  lon: number;
+  address: string | null;
+}
+
 export interface UserDto {
   id: string;
   email: string | null;
   displayName: string;
   avatarUrl: string | null;
+  /** Heimatadresse, falls hinterlegt – Vorschlag fuer Start und Ziel. */
+  home: HomeDto | null;
 }
 
 export interface VehicleDto {
@@ -59,6 +68,10 @@ export interface StageDto {
   title: string | null;
   date: string | null;
   notes: string | null;
+  /** Rastort, an dem die Etappe endet. */
+  lat: number | null;
+  lon: number | null;
+  address: string | null;
 }
 
 export interface WaypointDto {
@@ -92,8 +105,15 @@ export interface RouteDto {
 
 /** Ergebnis der Reihenfolgen-Optimierung – wird erst nach Bestätigung übernommen. */
 export interface OptimizeResultDto {
-  /** Wegpunkt-IDs in der vorgeschlagenen Reihenfolge. */
+  /**
+   * Was umsortiert wurde: Bei Reisen mit Rastorten je Etappe die Etappen,
+   * sonst die Wegpunkte zwischen Start und Ziel.
+   */
+  target: 'stages' | 'waypoints';
+  /** Wegpunkt-IDs in der vorgeschlagenen Reihenfolge; leer bei `stages`. */
   waypointIds: string[];
+  /** Etappen-IDs in der vorgeschlagenen Reihenfolge; leer bei `waypoints`. */
+  stageIds: string[];
   distanceM: number;
   durationS: number;
   /** Ersparnis gegenüber der bisherigen Reihenfolge, in Metern. */

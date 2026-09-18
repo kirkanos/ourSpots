@@ -3,6 +3,8 @@ import { Marker, Polyline } from 'react-leaflet';
 import {
   decodePolyline,
   ROUTE_PREFERENCES,
+  type HomeDto,
+  type OptimizeResultDto,
   type RouteOptions,
   type StageDto,
   type TripRouteDto,
@@ -12,6 +14,7 @@ import {
 import {
   useCalculateRoute,
   useCachedRoute,
+  useMe,
   useOptimizeRoute,
   useRoutingStatus,
   useSaveStages,
@@ -23,8 +26,8 @@ import { BaseMap } from '../map/BaseMap';
 import { waypointIcon } from '../map/markerIcons';
 import { LocationField } from '../LocationField';
 import { ErrorState, Loading } from '../States';
-import { IconPlus, IconRoute, IconTrash } from '../Icons';
-import { formatDuration, formatKm } from '../../lib/format';
+import { IconHome, IconPlus, IconRoute, IconTrash } from '../Icons';
+import { formatCoords, formatDuration, formatKm } from '../../lib/format';
 
 const PREFERENCE_LABELS: Record<(typeof ROUTE_PREFERENCES)[number], string> = {
   recommended: 'Empfohlen',
@@ -35,12 +38,24 @@ const PREFERENCE_LABELS: Record<(typeof ROUTE_PREFERENCES)[number], string> = {
 /** Farben der Teilrouten, damit Etappen auf der Karte unterscheidbar sind. */
 const LEG_COLORS = ['#1f6f5c', '#2f6f9e', '#9e6b2f', '#7a3f8f', '#2f9e7e', '#b3261e'];
 
+/** Etappe im Bearbeitungszustand – neue haben noch keine ID vom Server. */
+interface DraftStage {
+  id?: string;
+  seq: number;
+  title: string | null;
+  date: string | null;
+  lat: number | null;
+  lon: number | null;
+  address: string | null;
+}
+
 interface Props {
   tripId: string;
   canEdit: boolean;
 }
 
 export function RoutePlanner({ tripId, canEdit }: Props) {
+  const me = useMe();
   const stored = useWaypoints(tripId);
   const stages = useStages(tripId);
   const saveWaypoints = useSaveWaypoints(tripId);
@@ -50,9 +65,19 @@ export function RoutePlanner({ tripId, canEdit }: Props) {
   const optimize = useOptimizeRoute(tripId);
   const cachedRoute = useCachedRoute(tripId);
 
-  const [draft, setDraft] = useState<WaypointInput[]>([]);
+  // Start, Zwischenziele und Ziel liegen getrennt im State. Gespeichert werden
+  // sie weiterhin als eine sortierte Wegpunktliste – aber in der Bedienung
+  // sind Start und Ziel damit feste Plätze und nicht bloß der erste und letzte
+  // Eintrag einer Liste, in der sie versehentlich verrutschen können.
+  const [start, setStart] = useState<WaypointInput | null>(null);
+  const [vias, setVias] = useState<WaypointInput[]>([]);
+  const [end, setEnd] = useState<WaypointInput | null>(null);
   const [dirty, setDirty] = useState(false);
-  const [adding, setAdding] = useState(false);
+
+  const [stageDraft, setStageDraft] = useState<DraftStage[]>([]);
+  const [stagesDirty, setStagesDirty] = useState(false);
+
+  const [editing, setEditing] = useState<'start' | 'end' | 'via' | null>(null);
   const [showStages, setShowStages] = useState(false);
   const [options, setOptions] = useState<Partial<RouteOptions>>({
     preference: 'recommended',
@@ -60,11 +85,37 @@ export function RoutePlanner({ tripId, canEdit }: Props) {
     avoidFerries: false,
     avoidHighways: false,
   });
-  const [proposal, setProposal] = useState<{ ids: string[]; savedM: number } | null>(null);
+  const [proposal, setProposal] = useState<OptimizeResultDto | null>(null);
+
+  const home = me.data?.home ?? null;
 
   useEffect(() => {
-    if (stored.data && !dirty) setDraft(stored.data.map(toInput));
+    if (!stored.data || dirty) return;
+    const list = stored.data.map(toInput);
+    setStart(list[0] ?? null);
+    setEnd(list.length > 1 ? (list[list.length - 1] ?? null) : null);
+    setVias(list.length > 2 ? list.slice(1, -1) : []);
   }, [stored.data, dirty]);
+
+  useEffect(() => {
+    if (!stages.data || stagesDirty) return;
+    setStageDraft(stages.data.map(toDraftStage));
+  }, [stages.data, stagesDirty]);
+
+  /** Die Wegpunktliste, wie sie gespeichert wird. */
+  const draft: WaypointInput[] = useMemo(() => {
+    const list = [...(start ? [start] : []), ...vias, ...(end ? [end] : [])];
+    return list.map((wp, index) => ({
+      ...wp,
+      seq: index,
+      kind: wp === start ? 'start' : wp === end ? 'end' : 'via',
+    }));
+  }, [start, vias, end]);
+
+  const stageStops = stageDraft.filter(
+    (stage): stage is DraftStage & { lat: number; lon: number } =>
+      stage.lat !== null && stage.lon !== null,
+  );
 
   const route: TripRouteDto | undefined = calculate.data ?? cachedRoute;
 
@@ -73,70 +124,180 @@ export function RoutePlanner({ tripId, canEdit }: Props) {
     [route],
   );
 
-  const straightLine = draft.map((wp) => [wp.lat, wp.lon] as [number, number]);
+  // Vorschau der geplanten Reihenfolge: Über die Rastorte der Etappen, wenn es
+  // welche gibt – sonst über die freien Zwischenziele.
+  const previewLine: [number, number][] = [
+    ...(start ? [[start.lat, start.lon] as [number, number]] : []),
+    ...(stageStops.length > 0
+      ? stageStops.map((stage) => [stage.lat, stage.lon] as [number, number])
+      : vias.map((wp) => [wp.lat, wp.lon] as [number, number])),
+    ...(end ? [[end.lat, end.lon] as [number, number]] : []),
+  ];
+
   const mapBounds =
     legLines.length > 0 && legLines[0]!.length > 0
       ? legLines.flat()
-      : straightLine.length > 1
-        ? straightLine
+      : previewLine.length > 1
+        ? previewLine
         : undefined;
 
-  const reorder = (next: WaypointInput[]) =>
-    next.map((wp, i) => ({ ...wp, seq: i, kind: kindFor(i, next.length) }));
+  const markDirty = () => setDirty(true);
 
-  const move = (index: number, delta: number) => {
-    const next = [...draft];
-    const target = index + delta;
-    const a = next[index];
-    const b = next[target];
-    if (!a || !b) return;
-    next[index] = b;
-    next[target] = a;
-    setDraft(reorder(next));
-    setDirty(true);
+  /** Setzt einen Punkt und behält dabei dessen bisherige ID – so bleiben
+   *  Etappenzuordnung und Routen-Zwischenspeicher erhalten. */
+  const place = (
+    previous: WaypointInput | null,
+    value: { name: string; lat: number; lon: number; address: string | null },
+  ): WaypointInput => ({
+    id: previous?.id,
+    stageId: previous?.stageId ?? null,
+    seq: previous?.seq ?? 0,
+    kind: previous?.kind ?? 'via',
+    locked: previous?.locked ?? false,
+    plannedArrival: previous?.plannedArrival ?? null,
+    plannedNights: previous?.plannedNights ?? null,
+    ...value,
+  });
+
+  const takeHome = (slot: 'start' | 'end') => {
+    if (!home) return;
+    const value = { name: home.name, lat: home.lat, lon: home.lon, address: home.address };
+    if (slot === 'start') setStart((prev) => place(prev, value));
+    else setEnd((prev) => place(prev, value));
+    markDirty();
   };
 
   const applyProposal = () => {
     if (!proposal) return;
-    const byId = new Map(draft.filter((wp) => wp.id).map((wp) => [wp.id!, wp]));
-    const next = proposal.ids
-      .map((wpId) => byId.get(wpId))
-      .filter((wp): wp is WaypointInput => wp !== undefined);
-    setDraft(reorder(next));
-    setDirty(true);
+    if (proposal.target === 'stages') {
+      const byId = new Map(stageDraft.filter((s) => s.id).map((s) => [s.id!, s]));
+      const next = proposal.stageIds
+        .map((id) => byId.get(id))
+        .filter((stage): stage is DraftStage => stage !== undefined);
+      setStageDraft(next.map((stage, index) => ({ ...stage, seq: index })));
+      setStagesDirty(true);
+      setShowStages(true);
+    } else {
+      const byId = new Map(vias.filter((wp) => wp.id).map((wp) => [wp.id!, wp]));
+      const next = proposal.waypointIds
+        .map((id) => byId.get(id))
+        .filter((wp): wp is WaypointInput => wp !== undefined);
+      setVias(next);
+      markDirty();
+    }
     setProposal(null);
   };
+
+  const moveVia = (index: number, delta: number) => {
+    const next = [...vias];
+    const a = next[index];
+    const b = next[index + delta];
+    if (!a || !b) return;
+    next[index] = b;
+    next[index + delta] = a;
+    setVias(next);
+    markDirty();
+  };
+
+  /** Optimieren lohnt erst, wenn es überhaupt etwas umzusortieren gibt. */
+  const canOptimize = stageStops.length >= 2 ? Boolean(start && end) : vias.length >= 2;
 
   return (
     <div className="stack">
       <div className="card stack">
         <div className="row row--between">
-          <h2>Route und Zwischenziele</h2>
+          <h2>Start und Ziel</h2>
           {canEdit && (
-            <div className="row">
-              <button type="button" className="btn btn--ghost btn--small" onClick={() => setShowStages((v) => !v)}>
-                Etappen
-              </button>
-              <button type="button" className="btn btn--ghost btn--small" onClick={() => setAdding((v) => !v)}>
-                <IconPlus />
-                Ziel
-              </button>
-            </div>
+            <button type="button" className="btn btn--ghost btn--small" onClick={() => setShowStages((v) => !v)}>
+              Etappen
+            </button>
           )}
         </div>
 
         {stored.isPending && <Loading />}
 
-        {draft.length > 0 && (
+        <div className="grid grid--2">
+          <EndpointCard
+            label="Start"
+            point={start}
+            home={home}
+            canEdit={canEdit}
+            editing={editing === 'start'}
+            onTakeHome={() => takeHome('start')}
+            onEdit={() => setEditing(editing === 'start' ? null : 'start')}
+            onChange={(value) => {
+              setStart((prev) => place(prev, value));
+              setEditing(null);
+              markDirty();
+            }}
+            onClear={() => {
+              setStart(null);
+              markDirty();
+            }}
+          />
+          <EndpointCard
+            label="Ziel"
+            point={end}
+            home={home}
+            canEdit={canEdit}
+            editing={editing === 'end'}
+            onTakeHome={() => takeHome('end')}
+            onEdit={() => setEditing(editing === 'end' ? null : 'end')}
+            onChange={(value) => {
+              setEnd((prev) => place(prev, value));
+              setEditing(null);
+              markDirty();
+            }}
+            onClear={() => {
+              setEnd(null);
+              markDirty();
+            }}
+            extra={
+              canEdit && start ? (
+                <button
+                  type="button"
+                  className="btn btn--ghost btn--small"
+                  title="Für eine Rundreise: zurück zum Ausgangspunkt"
+                  onClick={() => {
+                    // Bewusst ohne ID kopiert – Start und Ziel sind zwei
+                    // Wegpunkte, auch wenn sie an derselben Stelle liegen.
+                    setEnd((prev) =>
+                      place(prev, {
+                        name: start.name,
+                        lat: start.lat,
+                        lon: start.lon,
+                        address: start.address ?? null,
+                      }),
+                    );
+                    markDirty();
+                  }}
+                >
+                  Wie Start
+                </button>
+              ) : null
+            }
+          />
+        </div>
+
+        {previewLine.length > 0 && (
           <div className="map-embed">
-            <BaseMap bounds={mapBounds} center={straightLine[0]} zoom={7}>
-              {draft.map((wp, index) => (
+            <BaseMap bounds={mapBounds} center={previewLine[0]} zoom={7}>
+              {start && <Marker position={[start.lat, start.lon]} icon={waypointIcon(1, 'start')} />}
+              {stageStops.map((stage, index) => (
+                <Marker
+                  key={stage.id ?? `stage-${index}`}
+                  position={[stage.lat, stage.lon]}
+                  icon={waypointIcon(index + 1, 'stage')}
+                />
+              ))}
+              {vias.map((wp, index) => (
                 <Marker
                   key={wp.id ?? `${wp.lat},${wp.lon},${index}`}
                   position={[wp.lat, wp.lon]}
-                  icon={waypointIcon(index + 1, wp.kind ?? 'via')}
+                  icon={waypointIcon(index + 1, 'via')}
                 />
               ))}
+              {end && <Marker position={[end.lat, end.lon]} icon={waypointIcon(previewLine.length, 'end')} />}
 
               {legLines.length > 0
                 ? legLines.map((line, index) => (
@@ -146,11 +307,11 @@ export function RoutePlanner({ tripId, canEdit }: Props) {
                       pathOptions={{ color: LEG_COLORS[index % LEG_COLORS.length], weight: 5, opacity: 0.85 }}
                     />
                   ))
-                : straightLine.length > 1 && (
+                : previewLine.length > 1 && (
                     // Vor der Berechnung nur eine Hilfslinie – gestrichelt, damit
                     // niemand sie für die Fahrstrecke hält.
                     <Polyline
-                      positions={straightLine}
+                      positions={previewLine}
                       pathOptions={{ color: '#8a9490', weight: 3, dashArray: '6 8' }}
                     />
                   )}
@@ -158,43 +319,68 @@ export function RoutePlanner({ tripId, canEdit }: Props) {
           </div>
         )}
 
-        {draft.length === 0 && !adding && (
-          <p className="muted">
-            Noch keine Ziele. Füge Start, Zwischenziele und Ziel hinzu – die Reihenfolge lässt sich
-            danach ändern.
-          </p>
-        )}
-
-        {adding && (
-          <WaypointAdder
-            onAdd={(value) => {
-              setDraft(reorder([...draft, { ...value, seq: draft.length, kind: 'via', locked: false }]));
-              setDirty(true);
-              setAdding(false);
-            }}
-            onCancel={() => setAdding(false)}
-          />
-        )}
-
         {showStages && canEdit && (
           <StageEditor
-            stages={stages.data ?? []}
+            draft={stageDraft}
+            dirty={stagesDirty}
             saving={saveStages.isPending}
             error={saveStages.error}
-            onSave={(next) => saveStages.mutate(next)}
+            onChange={(next) => {
+              setStageDraft(next);
+              setStagesDirty(true);
+            }}
+            onSave={() =>
+              saveStages.mutate(stageDraft, { onSuccess: () => setStagesDirty(false) })
+            }
+            onDiscard={() => {
+              setStageDraft((stages.data ?? []).map(toDraftStage));
+              setStagesDirty(false);
+            }}
           />
+        )}
+
+        {/* --- Freie Zwischenziele ------------------------------------------ */}
+
+        <div className="row row--between">
+          <h3>Zwischenziele</h3>
+          {canEdit && (
+            <button
+              type="button"
+              className="btn btn--ghost btn--small"
+              onClick={() => setEditing(editing === 'via' ? null : 'via')}
+            >
+              <IconPlus />
+              Zwischenziel
+            </button>
+          )}
+        </div>
+        <p className="small muted">
+          Stopps, die zu keiner Etappe gehören – etwa eine Fähre oder ein Tankstopp. Die Rastorte
+          der Reise selbst legst du besser als Etappen an.
+        </p>
+
+        {editing === 'via' && (
+          <PointForm
+            onSubmit={(value) => {
+              setVias([...vias, place(null, value)]);
+              setEditing(null);
+              markDirty();
+            }}
+            onCancel={() => setEditing(null)}
+          />
+        )}
+
+        {vias.length === 0 && editing !== 'via' && (
+          <p className="muted small">Keine Zwischenziele.</p>
         )}
 
         <ol className="waypoints">
-          {draft.map((wp, index) => (
+          {vias.map((wp, index) => (
             <li key={wp.id ?? `${wp.lat},${wp.lon},${index}`}>
               <div className="row row--between">
                 <div style={{ minWidth: 0 }}>
                   <div className="truncate">
-                    <strong>{wp.name}</strong>{' '}
-                    <span className="badge">
-                      {wp.kind === 'start' ? 'Start' : wp.kind === 'end' ? 'Ziel' : 'Zwischenziel'}
-                    </span>
+                    <strong>{wp.name}</strong>
                     {wp.locked && <span className="badge badge--accent">fest</span>}
                   </div>
                   <div className="small muted truncate">
@@ -211,10 +397,10 @@ export function RoutePlanner({ tripId, canEdit }: Props) {
                         className="select--compact"
                         value={wp.stageId ?? ''}
                         onChange={(e) => {
-                          const next = [...draft];
+                          const next = [...vias];
                           next[index] = { ...wp, stageId: e.target.value || null };
-                          setDraft(next);
-                          setDirty(true);
+                          setVias(next);
+                          markDirty();
                         }}
                       >
                         <option value="">ohne Etappe</option>
@@ -235,10 +421,10 @@ export function RoutePlanner({ tripId, canEdit }: Props) {
                           : 'Bei der Optimierung verschiebbar'
                       }
                       onClick={() => {
-                        const next = [...draft];
+                        const next = [...vias];
                         next[index] = { ...wp, locked: !wp.locked };
-                        setDraft(next);
-                        setDirty(true);
+                        setVias(next);
+                        markDirty();
                       }}
                     >
                       {wp.locked ? '🔒' : '🔓'}
@@ -248,7 +434,7 @@ export function RoutePlanner({ tripId, canEdit }: Props) {
                       className="btn btn--ghost btn--small"
                       aria-label="Nach oben"
                       disabled={index === 0}
-                      onClick={() => move(index, -1)}
+                      onClick={() => moveVia(index, -1)}
                     >
                       ↑
                     </button>
@@ -256,18 +442,18 @@ export function RoutePlanner({ tripId, canEdit }: Props) {
                       type="button"
                       className="btn btn--ghost btn--small"
                       aria-label="Nach unten"
-                      disabled={index === draft.length - 1}
-                      onClick={() => move(index, 1)}
+                      disabled={index === vias.length - 1}
+                      onClick={() => moveVia(index, 1)}
                     >
                       ↓
                     </button>
                     <button
                       type="button"
                       className="btn btn--danger btn--small"
-                      aria-label="Ziel entfernen"
+                      aria-label="Zwischenziel entfernen"
                       onClick={() => {
-                        setDraft(reorder(draft.filter((_, i) => i !== index)));
-                        setDirty(true);
+                        setVias(vias.filter((_, i) => i !== index));
+                        markDirty();
                       }}
                     >
                       <IconTrash />
@@ -287,15 +473,12 @@ export function RoutePlanner({ tripId, canEdit }: Props) {
               disabled={saveWaypoints.isPending}
               onClick={() => saveWaypoints.mutate(draft, { onSuccess: () => setDirty(false) })}
             >
-              {saveWaypoints.isPending ? 'Wird gespeichert …' : 'Ziele speichern'}
+              {saveWaypoints.isPending ? 'Wird gespeichert …' : 'Start, Ziel und Zwischenziele speichern'}
             </button>
             <button
               type="button"
               className="btn btn--ghost"
-              onClick={() => {
-                setDraft((stored.data ?? []).map(toInput));
-                setDirty(false);
-              }}
+              onClick={() => setDirty(false)}
             >
               Verwerfen
             </button>
@@ -361,7 +544,7 @@ export function RoutePlanner({ tripId, canEdit }: Props) {
           <button
             type="button"
             className="btn"
-            disabled={calculate.isPending || draft.length < 2 || dirty}
+            disabled={calculate.isPending || draft.length < 2 || dirty || stagesDirty}
             onClick={() => calculate.mutate(options)}
           >
             <IconRoute />
@@ -372,17 +555,13 @@ export function RoutePlanner({ tripId, canEdit }: Props) {
             <button
               type="button"
               className="btn btn--ghost"
-              disabled={optimize.isPending || draft.length < 4 || dirty}
-              title="Sucht eine kürzere Reihenfolge der Zwischenziele"
-              onClick={() =>
-                optimize.mutate(
-                  {},
-                  {
-                    onSuccess: (result) =>
-                      setProposal({ ids: result.waypointIds, savedM: result.savedM }),
-                  },
-                )
+              disabled={optimize.isPending || !canOptimize || dirty || stagesDirty}
+              title={
+                stageStops.length >= 2
+                  ? 'Sucht eine kürzere Reihenfolge der Etappen'
+                  : 'Sucht eine kürzere Reihenfolge der Zwischenziele'
               }
+              onClick={() => optimize.mutate({}, { onSuccess: setProposal })}
             >
               {optimize.isPending ? 'Wird gesucht …' : 'Reihenfolge optimieren'}
             </button>
@@ -396,10 +575,9 @@ export function RoutePlanner({ tripId, canEdit }: Props) {
           </a>
         </div>
 
-        {dirty && (
+        {(dirty || stagesDirty) && (
           <p className="small muted">
-            Erst die geänderten Ziele speichern – sonst würde die Route zur alten Reihenfolge
-            berechnet.
+            Erst die Änderungen speichern – sonst würde die Route zur alten Reihenfolge berechnet.
           </p>
         )}
 
@@ -408,7 +586,10 @@ export function RoutePlanner({ tripId, canEdit }: Props) {
 
         {proposal && (
           <div className="alert stack">
-            <strong>Vorschlag für eine neue Reihenfolge</strong>
+            <strong>
+              Vorschlag für eine neue Reihenfolge der{' '}
+              {proposal.target === 'stages' ? 'Etappen' : 'Zwischenziele'}
+            </strong>
             <span>
               {proposal.savedM > 0
                 ? `Das spart etwa ${formatKm(proposal.savedM)} gegenüber der jetzigen Reihenfolge.`
@@ -470,100 +651,118 @@ export function RoutePlanner({ tripId, canEdit }: Props) {
 
 // ---------------------------------------------------------------------------
 
-function StageEditor({
-  stages,
-  saving,
-  error,
-  onSave,
+/** Start bzw. Ziel der Reise – ein fester Platz, kein Listeneintrag. */
+function EndpointCard({
+  label,
+  point,
+  home,
+  canEdit,
+  editing,
+  onTakeHome,
+  onEdit,
+  onChange,
+  onClear,
+  extra,
 }: {
-  stages: StageDto[];
-  saving: boolean;
-  error: unknown;
-  onSave: (stages: { id?: string; seq: number; title: string | null; date: string | null }[]) => void;
+  label: string;
+  point: WaypointInput | null;
+  home: HomeDto | null;
+  canEdit: boolean;
+  editing: boolean;
+  onTakeHome: () => void;
+  onEdit: () => void;
+  onChange: (value: { name: string; lat: number; lon: number; address: string | null }) => void;
+  onClear: () => void;
+  extra?: React.ReactNode;
 }) {
-  // Neue Etappen haben noch keine ID – die vergibt der Server beim Speichern.
-  type DraftStage = { id?: string; seq: number; title: string | null; date: string | null };
-  const [draft, setDraft] = useState<DraftStage[]>(() =>
-    stages.map((stage) => ({ id: stage.id, seq: stage.seq, title: stage.title, date: stage.date })),
-  );
-
   return (
     <div className="card stack" style={{ background: 'var(--surface-alt)' }}>
-      <h3>Etappen</h3>
-      <p className="small muted">
-        Mit Etappen wird die Reise in Tagesabschnitte zerlegt; jede bekommt eine eigene Route.
-        Ohne Etappen entsteht eine durchgehende Strecke.
-      </p>
-
-      {draft.map((stage, index) => (
-        <div className="row" key={stage.id ?? index}>
-          <input
-            aria-label={`Titel der Etappe ${index + 1}`}
-            value={stage.title ?? ''}
-            placeholder={`Etappe ${index + 1}`}
-            onChange={(e) => {
-              const next = [...draft];
-              next[index] = { ...stage, title: e.target.value || null };
-              setDraft(next);
-            }}
-          />
-          <input
-            type="date"
-            aria-label={`Datum der Etappe ${index + 1}`}
-            value={stage.date ?? ''}
-            style={{ width: 'auto' }}
-            onChange={(e) => {
-              const next = [...draft];
-              next[index] = { ...stage, date: e.target.value || null };
-              setDraft(next);
-            }}
-          />
+      <div className="row row--between">
+        <strong>{label}</strong>
+        {point && canEdit && (
           <button
             type="button"
-            className="btn btn--danger btn--small"
-            aria-label="Etappe entfernen"
-            onClick={() => setDraft(draft.filter((_, i) => i !== index).map((s, i) => ({ ...s, seq: i })))}
+            className="btn btn--ghost btn--small"
+            aria-label={`${label} entfernen`}
+            onClick={onClear}
           >
             <IconTrash />
           </button>
-        </div>
-      ))}
-
-      {error != null && <ErrorState error={error} />}
-
-      <div className="row">
-        <button
-          type="button"
-          className="btn btn--ghost btn--small"
-          onClick={() => setDraft([...draft, { seq: draft.length, title: null, date: null }])}
-        >
-          <IconPlus />
-          Etappe
-        </button>
-        <button type="button" className="btn btn--small" disabled={saving} onClick={() => onSave(draft)}>
-          {saving ? 'Wird gespeichert …' : 'Etappen speichern'}
-        </button>
+        )}
       </div>
+
+      {point ? (
+        <div>
+          <div className="truncate">{point.name}</div>
+          <div className="small muted truncate">
+            {point.address ?? formatCoords(point.lat, point.lon)}
+          </div>
+        </div>
+      ) : (
+        <p className="muted small">Noch nicht festgelegt.</p>
+      )}
+
+      {canEdit && (
+        <div className="row">
+          {home && (
+            <button
+              type="button"
+              className="btn btn--ghost btn--small"
+              onClick={onTakeHome}
+              title={home.address ?? formatCoords(home.lat, home.lon)}
+            >
+              <IconHome />
+              {home.name}
+            </button>
+          )}
+          <button type="button" className="btn btn--ghost btn--small" onClick={onEdit}>
+            {editing ? 'Abbrechen' : point ? 'Ändern' : 'Ort wählen'}
+          </button>
+          {extra}
+        </div>
+      )}
+
+      {!home && canEdit && (
+        <p className="small muted">
+          Hinterlege dein Zuhause in den Einstellungen, dann steht es hier auf Knopfdruck bereit.
+        </p>
+      )}
+
+      {editing && (
+        <PointForm
+          initial={point}
+          onSubmit={(value) => onChange(value)}
+          onCancel={onEdit}
+        />
+      )}
     </div>
   );
 }
 
-function WaypointAdder({
-  onAdd,
+/**
+ * Ort festlegen: Bezeichnung plus Position über Adresssuche, eigenen Standort
+ * oder Tippen auf die Karte – alles im selben Formular.
+ */
+function PointForm({
+  initial,
+  onSubmit,
   onCancel,
 }: {
-  onAdd: (value: { name: string; lat: number; lon: number; address: string | null }) => void;
+  initial?: WaypointInput | null;
+  onSubmit: (value: { name: string; lat: number; lon: number; address: string | null }) => void;
   onCancel: () => void;
 }) {
-  const [name, setName] = useState('');
-  const [position, setPosition] = useState<{ lat: number; lon: number; address: string | null } | null>(null);
+  const [name, setName] = useState(initial?.name ?? '');
+  const [position, setPosition] = useState<{ lat: number; lon: number; address: string | null } | null>(
+    initial ? { lat: initial.lat, lon: initial.lon, address: initial.address ?? null } : null,
+  );
 
   return (
-    <div className="card stack" style={{ background: 'var(--surface-alt)' }}>
+    <div className="stack">
       <div className="field">
-        <label htmlFor="wp-name">Bezeichnung</label>
+        <label htmlFor={`point-name-${initial?.id ?? 'neu'}`}>Bezeichnung</label>
         <input
-          id="wp-name"
+          id={`point-name-${initial?.id ?? 'neu'}`}
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="z. B. Fähre Dagebüll"
@@ -588,14 +787,14 @@ function WaypointAdder({
           disabled={!position}
           onClick={() => {
             if (!position) return;
-            onAdd({
-              name: name.trim() || position.address?.split(',')[0]?.trim() || 'Zwischenziel',
+            onSubmit({
+              // Ohne eigene Bezeichnung nimmt der erste Teil der gefundenen
+              // Adresse deren Platz ein – das ist fast immer der Ortsname.
+              name: name.trim() || position.address?.split(',')[0]?.trim() || 'Ziel',
               lat: position.lat,
               lon: position.lon,
               address: position.address,
             });
-            setName('');
-            setPosition(null);
           }}
         >
           Übernehmen
@@ -603,6 +802,160 @@ function WaypointAdder({
         <button type="button" className="btn btn--ghost" onClick={onCancel}>
           Abbrechen
         </button>
+      </div>
+    </div>
+  );
+}
+
+function StageEditor({
+  draft,
+  dirty,
+  saving,
+  error,
+  onChange,
+  onSave,
+  onDiscard,
+}: {
+  draft: DraftStage[];
+  dirty: boolean;
+  saving: boolean;
+  error: unknown;
+  onChange: (next: DraftStage[]) => void;
+  onSave: () => void;
+  onDiscard: () => void;
+}) {
+  const [locating, setLocating] = useState<number | null>(null);
+
+  const update = (index: number, patch: Partial<DraftStage>) => {
+    const next = [...draft];
+    const current = next[index];
+    if (!current) return;
+    next[index] = { ...current, ...patch };
+    onChange(next);
+  };
+
+  const move = (index: number, delta: number) => {
+    const next = [...draft];
+    const a = next[index];
+    const b = next[index + delta];
+    if (!a || !b) return;
+    next[index] = b;
+    next[index + delta] = a;
+    onChange(next.map((stage, i) => ({ ...stage, seq: i })));
+  };
+
+  return (
+    <div className="card stack" style={{ background: 'var(--surface-alt)' }}>
+      <h3>Etappen</h3>
+      <p className="small muted">
+        Eine Etappe ist ein Rastort auf dem Weg. Die Reise führt vom Start über die Etappen der
+        Reihe nach zum Ziel, und jede Etappe bekommt eine eigene Teilstrecke.
+      </p>
+
+      {draft.map((stage, index) => (
+        <div className="stack" key={stage.id ?? index}>
+          <div className="row">
+            <input
+              aria-label={`Titel der Etappe ${index + 1}`}
+              value={stage.title ?? ''}
+              placeholder={`Etappe ${index + 1}`}
+              onChange={(e) => update(index, { title: e.target.value || null })}
+            />
+            <input
+              type="date"
+              aria-label={`Datum der Etappe ${index + 1}`}
+              value={stage.date ?? ''}
+              style={{ width: 'auto' }}
+              onChange={(e) => update(index, { date: e.target.value || null })}
+            />
+            <button
+              type="button"
+              className="btn btn--ghost btn--small"
+              aria-label="Nach oben"
+              disabled={index === 0}
+              onClick={() => move(index, -1)}
+            >
+              ↑
+            </button>
+            <button
+              type="button"
+              className="btn btn--ghost btn--small"
+              aria-label="Nach unten"
+              disabled={index === draft.length - 1}
+              onClick={() => move(index, 1)}
+            >
+              ↓
+            </button>
+            <button
+              type="button"
+              className="btn btn--danger btn--small"
+              aria-label="Etappe entfernen"
+              onClick={() =>
+                onChange(draft.filter((_, i) => i !== index).map((s, i) => ({ ...s, seq: i })))
+              }
+            >
+              <IconTrash />
+            </button>
+          </div>
+
+          <div className="row row--between">
+            <span className="small muted truncate">
+              {stage.lat !== null && stage.lon !== null
+                ? (stage.address ?? formatCoords(stage.lat, stage.lon))
+                : 'Kein Rastort festgelegt – diese Etappe wird übersprungen.'}
+            </span>
+            <button
+              type="button"
+              className="btn btn--ghost btn--small"
+              onClick={() => setLocating(locating === index ? null : index)}
+            >
+              {locating === index ? 'Fertig' : stage.lat !== null ? 'Ort ändern' : 'Ort wählen'}
+            </button>
+          </div>
+
+          {locating === index && (
+            <LocationField
+              lat={stage.lat}
+              lon={stage.lon}
+              address={stage.address}
+              onChange={(value) =>
+                update(index, {
+                  lat: value.lat,
+                  lon: value.lon,
+                  address: value.address !== undefined ? value.address : stage.address,
+                  // Ohne eigenen Titel benennt sich die Etappe nach ihrem Ort.
+                  title: stage.title ?? value.address?.split(',')[0]?.trim() ?? null,
+                })
+              }
+            />
+          )}
+        </div>
+      ))}
+
+      {error != null && <ErrorState error={error} />}
+
+      <div className="row">
+        <button
+          type="button"
+          className="btn btn--ghost btn--small"
+          onClick={() =>
+            onChange([
+              ...draft,
+              { seq: draft.length, title: null, date: null, lat: null, lon: null, address: null },
+            ])
+          }
+        >
+          <IconPlus />
+          Etappe
+        </button>
+        <button type="button" className="btn btn--small" disabled={saving || !dirty} onClick={onSave}>
+          {saving ? 'Wird gespeichert …' : 'Etappen speichern'}
+        </button>
+        {dirty && (
+          <button type="button" className="btn btn--ghost btn--small" onClick={onDiscard}>
+            Verwerfen
+          </button>
+        )}
       </div>
     </div>
   );
@@ -626,15 +979,20 @@ function toInput(wp: WaypointDto): WaypointInput {
   };
 }
 
+function toDraftStage(stage: StageDto): DraftStage {
+  return {
+    id: stage.id,
+    seq: stage.seq,
+    title: stage.title,
+    date: stage.date,
+    lat: stage.lat,
+    lon: stage.lon,
+    address: stage.address,
+  };
+}
+
 function stageTitle(stages: StageDto[], stageId: string | null): string {
   if (!stageId) return 'ohne Etappe';
   const stage = stages.find((s) => s.id === stageId);
   return stage ? (stage.title ?? `Etappe ${stage.seq + 1}`) : 'ohne Etappe';
-}
-
-/** Erster Punkt ist Start, letzter ist Ziel, alles dazwischen Zwischenziel. */
-function kindFor(index: number, total: number): 'start' | 'via' | 'end' {
-  if (index === 0) return 'start';
-  if (index === total - 1) return 'end';
-  return 'via';
 }

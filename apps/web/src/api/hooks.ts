@@ -7,6 +7,7 @@ import type {
   FuelLogDto,
   FuelLogInput,
   GeocodeResultDto,
+  HomeInput,
   ImportResultDto,
   OptimizeOptions,
   OptimizeResultDto,
@@ -41,6 +42,22 @@ export function useMe(): UseQueryResult<UserDto> {
     queryFn: () => api<UserDto>('/auth/me'),
     retry: false,
     staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useSetHome() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (home: HomeInput) => api<UserDto>('/auth/me/home', { method: 'PUT', body: home }),
+    onSuccess: (user) => qc.setQueryData(['me'], user),
+  });
+}
+
+export function useClearHome() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api<UserDto>('/auth/me/home', { method: 'DELETE' }),
+    onSuccess: (user) => qc.setQueryData(['me'], user),
   });
 }
 

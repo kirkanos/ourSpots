@@ -28,6 +28,22 @@ export const isoDate = z
 const trimmed = (max: number) => z.string().trim().max(max);
 
 // ---------------------------------------------------------------------------
+// Nutzerprofil
+// ---------------------------------------------------------------------------
+
+/**
+ * Heimatadresse. Geloescht wird sie ueber DELETE, nicht ueber einen
+ * `null`-Body: Der JSON-Parser nimmt im Strict-Modus nur Objekte an.
+ */
+export const homeInputSchema = z.object({
+  name: trimmed(200).min(1, 'Die Heimatadresse braucht eine Bezeichnung'),
+  lat: latitude,
+  lon: longitude,
+  address: trimmed(500).nullish(),
+});
+export type HomeInput = z.infer<typeof homeInputSchema>;
+
+// ---------------------------------------------------------------------------
 // Fahrzeug
 // ---------------------------------------------------------------------------
 
@@ -71,13 +87,22 @@ export type TripMemberInput = z.infer<typeof tripMemberInputSchema>;
 // Etappen und Wegpunkte
 // ---------------------------------------------------------------------------
 
-export const stageInputSchema = z.object({
-  id: uuid.optional(),
-  seq: z.number().int().min(0),
-  title: trimmed(200).nullish(),
-  date: isoDate.nullish(),
-  notes: trimmed(5000).nullish(),
-});
+export const stageInputSchema = z
+  .object({
+    id: uuid.optional(),
+    seq: z.number().int().min(0),
+    title: trimmed(200).nullish(),
+    date: isoDate.nullish(),
+    notes: trimmed(5000).nullish(),
+    /** Rastort, an dem die Etappe endet – beide Koordinaten oder keine. */
+    lat: latitude.nullish(),
+    lon: longitude.nullish(),
+    address: trimmed(500).nullish(),
+  })
+  .refine((stage) => (stage.lat == null) === (stage.lon == null), {
+    message: 'Zum Etappenziel gehören immer Breiten- und Längengrad',
+    path: ['lat'],
+  });
 export type StageInput = z.infer<typeof stageInputSchema>;
 
 export const waypointInputSchema = z.object({

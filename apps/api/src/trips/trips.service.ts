@@ -77,6 +77,8 @@ export class TripsService {
           email: null,
           displayName: '',
           avatarUrl: null,
+          // Die Heimatadresse ist Privatsache und geht Mitreisende nichts an.
+          home: null,
         },
       },
       ...trip.members.map((m) => ({
@@ -87,6 +89,7 @@ export class TripsService {
           email: m.user.email,
           displayName: m.user.displayName,
           avatarUrl: m.user.avatarUrl,
+          home: null,
         },
       })),
     ];
@@ -98,6 +101,7 @@ export class TripsService {
         email: owner.email,
         displayName: owner.displayName,
         avatarUrl: owner.avatarUrl,
+        home: null,
       };
     }
     return dto;
@@ -193,6 +197,9 @@ export class TripsService {
       title: s.title,
       date: fromDateOnly(s.date),
       notes: s.notes,
+      lat: s.lat,
+      lon: s.lon,
+      address: s.address,
     }));
   }
 
@@ -218,6 +225,9 @@ export class TripsService {
         title: stage.title ?? null,
         date: toDateOnly(stage.date),
         notes: stage.notes ?? null,
+        lat: stage.lat ?? null,
+        lon: stage.lon ?? null,
+        address: stage.address ?? null,
       }));
 
     const keptIds = rows.map((row) => row.id);
@@ -234,7 +244,15 @@ export class TripsService {
         this.prisma.stage.upsert({
           where: { id: row.id },
           create: row,
-          update: { seq: row.seq, title: row.title, date: row.date, notes: row.notes },
+          update: {
+            seq: row.seq,
+            title: row.title,
+            date: row.date,
+            notes: row.notes,
+            lat: row.lat,
+            lon: row.lon,
+            address: row.address,
+          },
         }),
       ),
       this.prisma.route.deleteMany({ where: { tripId } }),

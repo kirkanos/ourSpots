@@ -1,10 +1,13 @@
 import {
   BadRequestException,
+  Body,
   Controller,
+  Delete,
   Get,
   Inject,
   Logger,
   Post,
+  Put,
   Query,
   Req,
   Res,
@@ -17,7 +20,9 @@ import { SessionService } from './session.service';
 import { Public } from './public.decorator';
 import { CurrentUser, type AuthenticatedRequest } from './current-user.decorator';
 import type { User } from '../generated/prisma/client';
-import type { UserDto } from '@ourspots/shared';
+import { homeInputSchema, type HomeInput, type UserDto } from '@ourspots/shared';
+import { ZodValidationPipe } from '../common/zod-validation.pipe';
+import { PrismaService } from '../prisma/prisma.service';
 
 interface FlowState {
   state: string;
@@ -32,6 +37,7 @@ export class AuthController {
   constructor(
     private readonly oidc: OidcService,
     private readonly sessions: SessionService,
+    private readonly prisma: PrismaService,
     @Inject(CONFIG) private readonly config: AppConfig,
   ) {}
 
@@ -120,12 +126,37 @@ export class AuthController {
 
   @Get('me')
   me(@CurrentUser() user: User): UserDto {
-    return {
-      id: user.id,
-      email: user.email,
-      displayName: user.displayName,
-      avatarUrl: user.avatarUrl,
-    };
+    return toUserDto(user);
+  }
+
+  /**
+   * Heimatadresse setzen. Sie dient als Vorschlag fuer Start und Ziel einer
+   * Reise und gehoert deshalb zum Profil, nicht zu einer einzelnen Reise.
+   */
+  @Put('me/home')
+  async setHome(
+    @CurrentUser() user: User,
+    @Body(new ZodValidationPipe(homeInputSchema)) home: HomeInput,
+  ): Promise<UserDto> {
+    const updated = await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        homeName: home.name,
+        homeLat: home.lat,
+        homeLon: home.lon,
+        homeAddress: home.address ?? null,
+      },
+    });
+    return toUserDto(updated);
+  }
+
+  @Delete('me/home')
+  async clearHome(@CurrentUser() user: User): Promise<UserDto> {
+    const updated = await this.prisma.user.update({
+      where: { id: user.id },
+      data: { homeName: null, homeLat: null, homeLon: null, homeAddress: null },
+    });
+    return toUserDto(updated);
   }
 
   private cookieOptions(): CookieOptions {
@@ -146,4 +177,24 @@ export class AuthController {
 function sanitizeReturnTo(value: string | undefined): string {
   if (!value || !value.startsWith('/') || value.startsWith('//')) return '/';
   return value;
+}
+
+function toUserDto(user: User): UserDto {
+  return {
+    id: user.id,
+    email: user.email,
+    displayName: user.displayName,
+    avatarUrl: user.avatarUrl,
+    // Ohne Koordinaten ist die Adresse fuer Start und Ziel wertlos, deshalb
+    // zaehlt nur ein vollstaendiger Eintrag.
+    home:
+      user.homeLat != null && user.homeLon != null
+        ? {
+            name: user.homeName ?? 'Zuhause',
+            lat: user.homeLat,
+            lon: user.homeLon,
+            address: user.homeAddress,
+          }
+        : null,
+  };
 }
