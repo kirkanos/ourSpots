@@ -250,7 +250,7 @@ services:
 ```
 
 Env (`.env.sample`): `DATABASE_URL`, `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`,
-`APP_URL=https://spots.kirkanos.net`, `SESSION_SECRET`, `ORS_API_KEY`, `NOMINATIM_URL`, `PHOTO_DIR`, `TILE_URL`.
+`APP_URL=https://spots.kirkanos.net`, `SESSION_SECRET`, `ORS_API_KEY`, `NOMINATIM_URL`, `PHOTON_URL`, `PHOTO_DIR`, `TILE_URL`.
 
 Updates: `docker compose pull && docker compose up -d` — Prisma-Migrationen laufen beim
 API-Start automatisch (`prisma migrate deploy`).

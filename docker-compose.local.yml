@@ -58,6 +58,7 @@ services:
       ORS_BASE_URL: https://api.openrouteservice.org
       NOMINATIM_URL: https://nominatim.openstreetmap.org
       NOMINATIM_USER_AGENT: OurSpots-Test (lokal)
+      PHOTON_URL: https://photon.komoot.io
       PHOTO_DIR: /data/photos
       MAX_UPLOAD_MB: 25
       LOG_LEVEL: log

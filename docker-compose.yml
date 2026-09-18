@@ -76,6 +76,7 @@ services:
       ORS_BASE_URL: ${ORS_BASE_URL}
       NOMINATIM_URL: ${NOMINATIM_URL}
       NOMINATIM_USER_AGENT: ${NOMINATIM_USER_AGENT}
+      PHOTON_URL: ${PHOTON_URL:-https://photon.komoot.io}
       PHOTO_DIR: /data/photos
       MAX_UPLOAD_MB: ${MAX_UPLOAD_MB}
       LOG_LEVEL: ${LOG_LEVEL}

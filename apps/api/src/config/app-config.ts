@@ -41,6 +41,12 @@ const envSchema = z.object({
 
   NOMINATIM_URL: z.string().url().default('https://nominatim.openstreetmap.org'),
   NOMINATIM_USER_AGENT: z.string().min(5),
+  /**
+   * Nominatim sucht exakt und liefert bei einer Hausnummer oder PLZ, die so
+   * nicht in OSM steht, gar nichts zurück. Photon arbeitet auf denselben
+   * Daten, aber unscharf, und springt deshalb als Fallback ein.
+   */
+  PHOTON_URL: z.string().url().default('https://photon.komoot.io'),
 
   PHOTO_DIR: z.string().default('/data/photos'),
   MAX_UPLOAD_MB: z.coerce.number().int().min(1).max(200).default(25),
