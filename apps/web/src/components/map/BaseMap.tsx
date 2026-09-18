@@ -11,7 +11,15 @@ import { DEFAULT_CENTER, DEFAULT_ZOOM, TILE_ATTRIBUTION, TILE_URL } from '../../
  * Zoom-Obergrenze: ein einzelner Punkt ergibt sonst einen Ausschnitt, auf dem
  * nur noch eine leere Wiese zu sehen ist.
  */
-const BOUNDS_OPTIONS = { padding: [24, 24] as [number, number], maxZoom: 13 };
+const BOUNDS_OPTIONS = {
+  padding: [24, 24] as [number, number],
+  maxZoom: 13,
+  // Ohne das schluckt eine noch laufende Zoom-Animation die naechste
+  // Einrahmung. Da die Punkte oft in zwei Schueben eintreffen – erst die
+  // Etappen, dann Start und Ziel – bliebe die Karte dann auf dem ersten,
+  // unvollstaendigen Ausschnitt stehen.
+  animate: false,
+};
 
 interface Props {
   center?: [number, number];
@@ -94,7 +102,24 @@ function FitBounds({ bounds }: { bounds?: LatLngBoundsExpression }): null {
 
   useEffect(() => {
     if (!key) return;
-    map.fitBounds(JSON.parse(key) as LatLngBoundsExpression, BOUNDS_OPTIONS);
+    const value = JSON.parse(key) as LatLngBoundsExpression;
+
+    const fit = () => {
+      map.invalidateSize();
+      map.fitBounds(value, BOUNDS_OPTIONS);
+    };
+    fit();
+
+    // Leaflet rechnet den Ausschnitt gegen die Groesse, die der Container im
+    // Moment des Aufrufs hat. Beim ersten Rendern steht die noch nicht fest,
+    // und spaeter aendert sie sich mit dem Fenster – ohne Nachmessen bliebe
+    // die Karte auf einem Ausschnitt stehen, der die Punkte anschneidet.
+    // Bewusst ueber den ResizeObserver statt ueber requestAnimationFrame:
+    // Letzteres feuert in einem Hintergrund-Tab nicht, die Karte bliebe dann
+    // ganz ohne Einrahmung.
+    const observer = new ResizeObserver(fit);
+    observer.observe(map.getContainer());
+    return () => observer.disconnect();
   }, [map, key]);
 
   return null;

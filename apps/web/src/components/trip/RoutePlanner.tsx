@@ -279,6 +279,13 @@ export function RoutePlanner({ tripId, canEdit }: Props) {
           />
         </div>
 
+        {!home && canEdit && (
+          <p className="small muted">
+            Hinterlege dein Zuhause in den Einstellungen, dann steht es hier für Start und Ziel auf
+            Knopfdruck bereit.
+          </p>
+        )}
+
         {previewLine.length > 0 && (
           <div className="map-embed">
             <BaseMap bounds={mapBounds} center={previewLine[0]} zoom={7}>
@@ -676,65 +683,54 @@ function EndpointCard({
   extra?: React.ReactNode;
 }) {
   return (
-    <div className="card stack" style={{ background: 'var(--surface-alt)' }}>
+    <div className="endpoint">
       <div className="row row--between">
-        <strong>{label}</strong>
-        {point && canEdit && (
-          <button
-            type="button"
-            className="btn btn--ghost btn--small"
-            aria-label={`${label} entfernen`}
-            onClick={onClear}
-          >
-            <IconTrash />
-          </button>
+        <span className="endpoint__label">{label}</span>
+        {canEdit && (
+          <div className="row">
+            {home && (
+              <button
+                type="button"
+                className="btn btn--ghost btn--small"
+                onClick={onTakeHome}
+                title={home.address ?? formatCoords(home.lat, home.lon)}
+              >
+                <IconHome />
+                {home.name}
+              </button>
+            )}
+            <button type="button" className="btn btn--ghost btn--small" onClick={onEdit}>
+              {editing ? 'Abbrechen' : point ? 'Ändern' : 'Ort wählen'}
+            </button>
+            {extra}
+            {point && (
+              <button
+                type="button"
+                className="btn btn--ghost btn--small"
+                aria-label={`${label} entfernen`}
+                onClick={onClear}
+              >
+                <IconTrash />
+              </button>
+            )}
+          </div>
         )}
       </div>
 
-      {point ? (
-        <div>
-          <div className="truncate">{point.name}</div>
-          <div className="small muted truncate">
-            {point.address ?? formatCoords(point.lat, point.lon)}
-          </div>
-        </div>
-      ) : (
-        <p className="muted small">Noch nicht festgelegt.</p>
-      )}
+      {/* Name und Adresse teilen sich eine Zeile – die Adresse ist lang und
+          wuerde die Karte sonst allein doppelt so hoch machen. */}
+      <div className="truncate">
+        {point ? (
+          <>
+            <strong>{point.name}</strong>{' '}
+            <span className="small muted">{point.address ?? formatCoords(point.lat, point.lon)}</span>
+          </>
+        ) : (
+          <span className="small muted">Noch nicht festgelegt.</span>
+        )}
+      </div>
 
-      {canEdit && (
-        <div className="row">
-          {home && (
-            <button
-              type="button"
-              className="btn btn--ghost btn--small"
-              onClick={onTakeHome}
-              title={home.address ?? formatCoords(home.lat, home.lon)}
-            >
-              <IconHome />
-              {home.name}
-            </button>
-          )}
-          <button type="button" className="btn btn--ghost btn--small" onClick={onEdit}>
-            {editing ? 'Abbrechen' : point ? 'Ändern' : 'Ort wählen'}
-          </button>
-          {extra}
-        </div>
-      )}
-
-      {!home && canEdit && (
-        <p className="small muted">
-          Hinterlege dein Zuhause in den Einstellungen, dann steht es hier auf Knopfdruck bereit.
-        </p>
-      )}
-
-      {editing && (
-        <PointForm
-          initial={point}
-          onSubmit={(value) => onChange(value)}
-          onCancel={onEdit}
-        />
-      )}
+      {editing && <PointForm initial={point} onSubmit={onChange} onCancel={onEdit} />}
     </div>
   );
 }

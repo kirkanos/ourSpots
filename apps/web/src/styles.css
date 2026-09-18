@@ -183,6 +183,26 @@ a { color: var(--accent); }
 .row--between { justify-content: space-between; }
 .stack { display: flex; flex-direction: column; gap: 0.75rem; }
 
+/* Start und Ziel der Route: knapp gehalten, damit die Karte darunter nicht
+   auf einen Streifen zusammenschrumpft. */
+.endpoint {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.55rem 0.7rem;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.endpoint__label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
 .muted { color: var(--text-muted); }
 .small { font-size: 0.85rem; }
 .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
