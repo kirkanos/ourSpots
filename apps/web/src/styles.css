@@ -189,6 +189,11 @@ a { color: var(--accent); }
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
+  /* Ohne das sprengt die Karte ihre Rasterspalte: Die Mindestbreite eines
+     Rasterelements richtet sich nach seinem Inhalt, und die Adresse in einer
+     Zeile bricht nicht um. Sie wuerde dann nicht gekuerzt, sondern
+     hinausgeschoben. */
+  min-width: 0;
   padding: 0.55rem 0.7rem;
   background: var(--surface-alt);
   border: 1px solid var(--border);
