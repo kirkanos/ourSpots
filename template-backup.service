@@ -1,0 +1,14 @@
+[Unit]
+Description=%SERVICE% Sicherung nach Nextcloud
+After=docker.service
+# Nur Requires, nicht BindsTo: Die Sicherung ist ein einmaliger Lauf und soll
+# nicht mitgerissen werden, wenn Docker spaeter neu startet.
+Requires=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/services/%SERVICE%/
+ExecStart=/services/%SERVICE%/backup.sh
+# Kein Restart=: systemd laesst das bei Type=oneshot nicht zu. Schlaegt die
+# Sicherung fehl, steht das im Journal und der Timer versucht es am naechsten
+# Tag erneut.

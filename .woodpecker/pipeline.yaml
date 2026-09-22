@@ -99,12 +99,18 @@ steps:
       - export SSH_OPTS='-o BatchMode=yes -o RequestTTY=no -o ConnectTimeout=30 -o ConnectionAttempts=1 -o StrictHostKeyChecking=accept-new -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -p822'
       - export SCP_OPTS='-o BatchMode=yes -o ConnectTimeout=30 -o ConnectionAttempts=1 -o StrictHostKeyChecking=accept-new -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -P822'
       - timeout 60 sh -c "ssh -n -T $SSH_OPTS \"$SSH_HOST_LOCAL\" \"mkdir -p /services/$SERVICE\""
-      - echo "Upload docker-compose.yml und .env"
-      - timeout 60 sh -c "scp $SCP_OPTS docker-compose.yml .env \"$SSH_HOST_LOCAL\":/services/$SERVICE/"
-      - echo "Upload systemd unit"
+      - echo "Upload docker-compose.yml, .env und backup.sh"
+      - timeout 60 sh -c "scp $SCP_OPTS docker-compose.yml .env scripts/backup.sh \"$SSH_HOST_LOCAL\":/services/$SERVICE/"
+      # Die .env und das Backup-Archiv enthalten Zugangsdaten; nur der Besitzer
+      # soll sie lesen koennen.
+      - timeout 60 sh -c "ssh -n -T $SSH_OPTS \"$SSH_HOST_LOCAL\" \"chmod 600 /services/$SERVICE/.env && chmod 700 /services/$SERVICE/backup.sh\""
+      - echo "Upload systemd units"
       - sed -e "s/%SERVICE%/$SERVICE/g" template.service > "$SERVICE.service"
-      - timeout 60 sh -c "scp $SCP_OPTS \"$SERVICE.service\" \"$SSH_HOST_LOCAL\":/etc/systemd/system"
-      - timeout 60 sh -c "ssh -n -T $SSH_OPTS \"$SSH_HOST_LOCAL\" \"systemctl daemon-reload && systemctl enable $SERVICE\""
+      - sed -e "s/%SERVICE%/$SERVICE/g" template-backup.service > "$SERVICE-backup.service"
+      - sed -e "s/%SERVICE%/$SERVICE/g" template-backup.timer > "$SERVICE-backup.timer"
+      - timeout 60 sh -c "scp $SCP_OPTS \"$SERVICE.service\" \"$SERVICE-backup.service\" \"$SERVICE-backup.timer\" \"$SSH_HOST_LOCAL\":/etc/systemd/system"
+      # Nur der Timer wird aktiviert – die Sicherung selbst startet er.
+      - timeout 60 sh -c "ssh -n -T $SSH_OPTS \"$SSH_HOST_LOCAL\" \"systemctl daemon-reload && systemctl enable $SERVICE && systemctl enable --now $SERVICE-backup.timer\""
     when:
       - event: push
 

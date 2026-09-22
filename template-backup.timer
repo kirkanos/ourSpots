@@ -1,0 +1,12 @@
+[Unit]
+Description=Taegliche Sicherung von %SERVICE% nach Nextcloud
+
+[Timer]
+OnCalendar=*-*-* 03:00:00
+# Damit nicht alle Dienste des Servers zur selben Sekunde loslegen.
+RandomizedDelaySec=15min
+# Holt die Sicherung nach, wenn der Server um drei Uhr aus war.
+Persistent=true
+
+[Install]
+WantedBy=timers.target
