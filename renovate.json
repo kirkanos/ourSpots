@@ -1,4 +1,12 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["github>kirkanos/renovate-config"]
+  "extends": ["github>kirkanos/renovate-config"],
+  "packageRules": [
+    {
+      "description": "openid-client wechselt mit jeder Hauptversion die komplette Schnittstelle: Fassung 6 hat die Klassen aus 5 durch freie Funktionen ersetzt und spricht nur noch HTTPS. Das laesst sich nicht nebenbei mitnehmen, deshalb keine automatischen Hauptversionen. Zum Aktualisieren die Regel voruebergehend entfernen und den Anmeldeweg danach von Hand pruefen.",
+      "matchPackageNames": ["openid-client"],
+      "matchUpdateTypes": ["major"],
+      "enabled": false
+    }
+  ]
 }
