@@ -34,6 +34,6 @@
     "esbuild@0.25.12": true
   },
   "devDependencies": {
-    "concurrently": "^9.1.2"
+    "concurrently": "^10.0.5"
   }
 }

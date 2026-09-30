@@ -15,7 +15,6 @@
     "isolatedModules": true,
     "allowImportingTsExtensions": false,
     "types": ["vite/client", "vite-plugin-pwa/client"],
-    "baseUrl": ".",
     "paths": {
       "@ourspots/shared": ["../../packages/shared/src/index.ts"]
     }
