@@ -97,13 +97,36 @@ export default defineConfig({
     sourcemap: true,
     rollupOptions: {
       output: {
-        // Leaflet und React ändern sich selten – eigener Chunk, damit ein
-        // App-Update nicht das ganze Bundle neu laden lässt.
-        manualChunks: {
-          leaflet: ['leaflet', 'react-leaflet', 'leaflet.markercluster'],
-          react: ['react', 'react-dom', 'react-router-dom'],
-        },
+        manualChunks,
       },
     },
   },
 });
+
+/**
+ * Leaflet und React ändern sich selten – eigener Chunk, damit ein App-Update
+ * nicht das ganze Bundle neu laden lässt.
+ *
+ * Seit Vite 8 bündelt Rolldown statt Rollup, und das nimmt hier nur noch eine
+ * Funktion entgegen, keine Zuordnungstabelle mehr.
+ */
+const CHUNKS: Record<string, string[]> = {
+  leaflet: ['leaflet', 'react-leaflet', 'leaflet.markercluster'],
+  react: ['react', 'react-dom', 'react-router-dom', 'react-router', 'scheduler'],
+};
+
+function manualChunks(id: string): string | undefined {
+  if (!id.includes('node_modules')) return undefined;
+
+  // Der Paketname wird exakt verglichen, nicht als Teilstring: sonst landete
+  // etwa react-leaflet im react-Chunk, weil der Name mit "react" beginnt.
+  const pfad = id.split('node_modules/').pop() ?? '';
+  const name = pfad.startsWith('@')
+    ? pfad.split('/').slice(0, 2).join('/')
+    : (pfad.split('/')[0] ?? '');
+
+  for (const [chunk, pakete] of Object.entries(CHUNKS)) {
+    if (pakete.includes(name)) return chunk;
+  }
+  return undefined;
+}
