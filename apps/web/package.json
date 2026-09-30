@@ -27,7 +27,7 @@
     "@types/leaflet.markercluster": "^1.5.5",
     "@types/react": "^19.0.10",
     "@types/react-dom": "^19.0.4",
-    "@vitejs/plugin-react": "^4.3.4",
+    "@vitejs/plugin-react": "^5.0.0",
     "typescript": "^5.7.3",
     "vite": "^6.2.0",
     "vite-plugin-pwa": "^0.21.1"
