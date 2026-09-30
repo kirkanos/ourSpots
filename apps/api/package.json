@@ -4,14 +4,14 @@
   "private": true,
   "main": "dist/main.js",
   "scripts": {
-    "build": "prisma generate && nest build",
+    "build": "prisma generate && rm -rf dist && tsc -p tsconfig.json",
     "db:apply": "dotenv -e ../../.env.development -- prisma migrate deploy",
     "db:deploy": "prisma migrate deploy",
     "db:generate": "prisma generate",
     "db:migrate": "dotenv -e ../../.env.development -- prisma migrate dev",
     "db:seed": "dotenv -e ../../.env.development -- tsx prisma/seed.ts",
     "db:studio": "dotenv -e ../../.env.development -- prisma studio",
-    "dev": "prisma generate && dotenv -e ../../.env.development -- nest start --watch",
+    "dev": "prisma generate && tsc -p tsconfig.json && dotenv -e ../../.env.development -- concurrently -k -n tsc,api -c blue,green \"tsc -p tsconfig.json --watch --preserveWatchOutput\" \"node --watch dist/main.js\"",
     "start": "node dist/main.js",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
@@ -44,6 +44,6 @@
     "@types/node": "^22.13.10",
     "dotenv-cli": "^11.0.0",
     "tsx": "^4.19.3",
-    "typescript": "^6.0.0"
+    "typescript": "^7.0.2"
   }
 }
