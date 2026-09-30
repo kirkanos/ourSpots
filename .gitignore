@@ -13,6 +13,8 @@ apps/web/dev-dist/
 apps/api/prisma/*.db
 # Wird von "prisma generate" erzeugt, bei jedem Build neu.
 apps/api/src/generated/
+# Zwischenstand des inkrementellen tsc-Laufs, aendert sich bei jedem Build.
+*.tsbuildinfo
 .vite/
 coverage/
 .env.development
