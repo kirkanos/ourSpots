@@ -92,13 +92,17 @@ export const IconTrash = ({ className }: IconProps) => (
 );
 
 export const IconLogo = ({ className }: IconProps) => (
+  // Gleiche Form wie public/favicon.svg – Aenderungen gehoeren in beide.
   <svg viewBox="0 0 64 64" className={className} aria-hidden>
     <rect width="64" height="64" rx="12" fill="var(--accent)" />
-    <path
-      d="M10 38V24a4 4 0 0 1 4-4h22l10 10v8a3 3 0 0 1-3 3h-2a6 6 0 0 0-12 0h-4a6 6 0 0 0-12 0a3 3 0 0 1-3-3Z"
-      fill="var(--accent-contrast)"
-    />
-    <circle cx="21" cy="42" r="4" fill="var(--accent-contrast)" />
-    <circle cx="43" cy="42" r="4" fill="var(--accent-contrast)" />
+    <path d="M8 42V20a4 4 0 0 1 4-4h33l10 11v15Z" fill="var(--accent-contrast)" />
+    <rect x="13" y="21" width="18" height="10" rx="2" fill="var(--accent)" />
+    {/* Radkasten in der Hintergrundfarbe, sonst verschwinden die Raeder im Aufbau. */}
+    <circle cx="20" cy="42" r="8.5" fill="var(--accent)" />
+    <circle cx="46" cy="42" r="8.5" fill="var(--accent)" />
+    <circle cx="20" cy="42" r="5" fill="var(--accent-contrast)" />
+    <circle cx="46" cy="42" r="5" fill="var(--accent-contrast)" />
+    <circle cx="20" cy="42" r="1.7" fill="var(--accent)" />
+    <circle cx="46" cy="42" r="1.7" fill="var(--accent)" />
   </svg>
 );
