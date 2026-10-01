@@ -102,8 +102,9 @@ Die Pipeline liegt in `.woodpecker/pipeline.yaml` und läuft nur bei Push auf `m
 | `check` | `npm ci`, Prisma-Client, gemeinsames Paket, Typprüfung über alle drei Pakete, Produktionsbuild des Frontends |
 | `build api image` | Kaniko baut `docker/api/Dockerfile` → `images/ourspots-api:latest` und `:<commit>` |
 | `build web image` | Kaniko baut `docker/web/Dockerfile` → `images/ourspots-web:latest` und `:<commit>` |
-| `deploy files` | `docker-compose.yml`, `.env` und `backup.sh` nach `/services/$SERVICE/`, systemd-Units aktivieren, Sicherungs-Timer einschalten |
+| `deploy files` | `docker-compose.yml`, `.env`, `backup.sh` und `verify-deploy.sh` nach `/services/$SERVICE/`, systemd-Units aktivieren, Sicherungs-Timer einschalten |
 | `restart service` | `systemctl stop` und `start`; die Unit holt die Images und startet die Container |
+| `verify deploy` | wartet, bis alle Container gesund sind, und fragt dann `/api/health` im API-Container ab |
 
 Die Unit räumt vor dem Start mit `docker compose down --remove-orphans` auf.
 Das ist nötig, wenn ein Dienst in der Compose-Datei umbenannt wurde: Der alte
@@ -111,11 +112,23 @@ Container läuft dann unter einem Namen weiter, den der neue beansprucht, und
 `up` scheitert am Namenskonflikt. Benannte Volumes bleiben unberührt, `down`
 ohne `-v` fasst sie nicht an.
 
-Zu beachten: Die Pipeline ruft nur `systemctl start` auf und wartet nicht auf
-den Container-Start. Ein Fehler im `docker compose up` färbt deshalb **nicht**
-auf die Pipeline ab – sie meldet Erfolg, obwohl die App nicht läuft. Nach einem
-Deploy, der etwas an Compose-Datei oder Unit ändert, lohnt ein Blick auf
-`https://spots.kirkanos.net/api/health`.
+`systemctl start` kehrt zurück, sobald der Startbefehl abgesetzt ist – nicht,
+wenn die Anwendung antwortet. Deshalb der Schritt `verify deploy`: Er wartet
+über SSH, bis alle Container laufen und ihre Healthchecks bestehen, und fragt
+danach `/api/health` aus dem API-Container heraus ab. Von außen ginge das
+nicht, weil die API keinen Port veröffentlicht und Authelia davorsteht.
+
+Schlägt das fehl, wird die Pipeline rot und gibt den Zustand der Container samt
+der letzten Protokollzeilen aus. Ohne diesen Schritt meldete die Pipeline
+Erfolg, während die App nicht hochkam – so ist der Sprung auf `mariadb:13`
+unbemerkt durchgegangen.
+
+Das Zeitlimit liegt bei 240 Sekunden; der API-Container wartet erst auf die
+Datenbank und lässt dann die Migrationen laufen. Von Hand prüfen:
+
+```bash
+ssh -p822 server "/services/ourspots/verify-deploy.sh"
+```
 
 Der Prüfschritt läuft bewusst vor dem Image-Build – so landet eine kaputte
 Fassung gar nicht erst in der Registry.

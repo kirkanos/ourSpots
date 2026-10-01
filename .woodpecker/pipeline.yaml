@@ -99,11 +99,11 @@ steps:
       - export SSH_OPTS='-o BatchMode=yes -o RequestTTY=no -o ConnectTimeout=30 -o ConnectionAttempts=1 -o StrictHostKeyChecking=accept-new -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -p822'
       - export SCP_OPTS='-o BatchMode=yes -o ConnectTimeout=30 -o ConnectionAttempts=1 -o StrictHostKeyChecking=accept-new -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -P822'
       - timeout 60 sh -c "ssh -n -T $SSH_OPTS \"$SSH_HOST_LOCAL\" \"mkdir -p /services/$SERVICE\""
-      - echo "Upload docker-compose.yml, .env und backup.sh"
-      - timeout 60 sh -c "scp $SCP_OPTS docker-compose.yml .env scripts/backup.sh \"$SSH_HOST_LOCAL\":/services/$SERVICE/"
+      - echo "Upload docker-compose.yml, .env, backup.sh und verify-deploy.sh"
+      - timeout 60 sh -c "scp $SCP_OPTS docker-compose.yml .env scripts/backup.sh scripts/verify-deploy.sh \"$SSH_HOST_LOCAL\":/services/$SERVICE/"
       # Die .env und das Backup-Archiv enthalten Zugangsdaten; nur der Besitzer
       # soll sie lesen koennen.
-      - timeout 60 sh -c "ssh -n -T $SSH_OPTS \"$SSH_HOST_LOCAL\" \"chmod 600 /services/$SERVICE/.env && chmod 700 /services/$SERVICE/backup.sh\""
+      - timeout 60 sh -c "ssh -n -T $SSH_OPTS \"$SSH_HOST_LOCAL\" \"chmod 600 /services/$SERVICE/.env && chmod 700 /services/$SERVICE/backup.sh /services/$SERVICE/verify-deploy.sh\""
       - echo "Upload systemd units"
       - sed -e "s/%SERVICE%/$SERVICE/g" template.service > "$SERVICE.service"
       - sed -e "s/%SERVICE%/$SERVICE/g" template-backup.service > "$SERVICE-backup.service"
@@ -128,5 +128,26 @@ steps:
       - timeout 60 sh -c "ssh -n -T $SSH_OPTS \"$SSH_HOST_LOCAL\" \"systemctl stop $SERVICE\" || true"
       - timeout 180 sh -c "ssh -n -T $SSH_OPTS \"$SSH_HOST_LOCAL\" \"systemctl start $SERVICE\""
       - echo "Service restart done"
+    when:
+      - event: push
+
+  # systemctl start kehrt zurueck, sobald der Startbefehl abgesetzt ist -- nicht,
+  # wenn die Anwendung antwortet. Ohne diesen Schritt meldet die Pipeline Erfolg,
+  # waehrend die App nicht hochkommt. Genau so ist der Sprung auf mariadb:13
+  # unbemerkt durchgegangen.
+  - name: verify deploy
+    image: registry.kirkanos.net/images/ci-build:alpine
+    volumes: [ "/services/common/.ssh:/root/.ssh" ]
+    environment:
+      SSH_HOST_LOCAL:
+        from_secret: ssh_host_local
+    commands:
+      - set -a && . ./.env && set +a
+      - test -n "$SERVICE" || (echo "SERVICE ist leer" && exit 1)
+      - test -n "$SSH_HOST_LOCAL" || (echo "SSH_HOST_LOCAL ist leer" && exit 1)
+      - export SSH_OPTS='-o BatchMode=yes -o RequestTTY=no -o ConnectTimeout=30 -o ConnectionAttempts=1 -o StrictHostKeyChecking=accept-new -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -p822'
+      # Grosszuegiger als das Zeitlimit im Skript, damit dessen Bericht noch
+      # durchkommt, statt von timeout abgeschnitten zu werden.
+      - timeout 300 sh -c "ssh -n -T $SSH_OPTS \"$SSH_HOST_LOCAL\" \"/services/$SERVICE/verify-deploy.sh\""
     when:
       - event: push
