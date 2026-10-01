@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # --- Build -----------------------------------------------------------------
-FROM node:22-alpine AS build
+FROM node:24-alpine AS build
 WORKDIR /app
 
 # Prisma leitet die passende Engine-Variante aus der vorhandenen OpenSSL-Version
@@ -30,7 +30,7 @@ RUN npm prune --omit=dev --workspace @ourspots/shared --workspace @ourspots/api 
  && npx --no-install prisma generate --config apps/api/prisma.config.ts
 
 # --- Laufzeit ---------------------------------------------------------------
-FROM node:22-alpine AS runtime
+FROM node:24-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 
