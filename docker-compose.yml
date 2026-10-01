@@ -33,6 +33,11 @@ services:
       MARIADB_USER: ${MYSQL_USER}
       MARIADB_PASSWORD: ${MYSQL_PASSWORD}
       MARIADB_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      # Nach einem Sprung auf eine neue Hauptversion muessen die Systemtabellen
+      # angepasst werden. Ohne diesen Schalter ueberspringt der Einstiegspunkt
+      # den Schritt und meldet ihn nur im Log -- der Server laeuft dann mit dem
+      # Datenverzeichnis der alten Fassung weiter, was MariaDB nicht vorsieht.
+      MARIADB_AUTO_UPGRADE: 1
     command:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci

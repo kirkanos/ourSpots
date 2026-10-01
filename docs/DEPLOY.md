@@ -163,6 +163,26 @@ Das hat eine Kehrseite: Die Datenbank ist damit für jeden Container im
 ändert sich nichts – veröffentlicht wird kein Port –, aber der Schutz ist jetzt
 allein das Passwort.
 
+## Datenbank-Hauptversionen
+
+Die Compose-Datei setzt `MARIADB_AUTO_UPGRADE: 1`. Nach einem Sprung auf eine
+neue Hauptversion passt der Einstiegspunkt damit beim Start die Systemtabellen
+an (`mariadb-upgrade`). Ohne den Schalter überspringt er den Schritt und
+vermerkt ihn nur im Log – der Server läuft dann mit dem Datenverzeichnis der
+alten Fassung weiter, was MariaDB nicht vorsieht.
+
+Das passiert beim **Start des Containers**, also beim nächsten Deploy nach
+einem Versionswechsel. Der Schritt verändert die Datenbank und lässt sich
+nicht zurücknehmen. Vor einem geplanten Versionswechsel gehört deshalb ein
+Blick auf die letzte Sicherung:
+
+```bash
+journalctl -u ourspots-backup.service -n 30
+```
+
+Die Benutzertabellen rührt der Schritt nicht an (`--upgrade-system-tables`);
+geprüft wurde ein Sprung von 11.8 auf 13.0 mit unverändertem Datenbestand.
+
 ## Sicherung
 
 `scripts/backup.sh` legt jede Nacht ein Archiv in der Nextcloud ab. Es enthält
