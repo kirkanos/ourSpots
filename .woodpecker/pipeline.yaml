@@ -25,7 +25,7 @@ steps:
       - event: push
 
   - name: check
-    image: node:22-bookworm-slim
+    image: node:24-bookworm-slim
     commands:
       # Typprüfung über beide Anwendungen und das gemeinsame Paket, dazu der
       # Produktionsbuild des Frontends – der fängt ab, was erst beim Bündeln
