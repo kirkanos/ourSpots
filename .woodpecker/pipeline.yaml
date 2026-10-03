@@ -55,7 +55,7 @@ steps:
         from_secret: docker_password
       tags:
         - latest
-        - ${CI_COMMIT_SHA:0:7}
+        - "sha-${CI_COMMIT_SHA:0:7}"
     when:
       - event: push
 
@@ -75,7 +75,7 @@ steps:
         from_secret: docker_password
       tags:
         - latest
-        - ${CI_COMMIT_SHA:0:7}
+        - "sha-${CI_COMMIT_SHA:0:7}"
     when:
       - event: push
 
@@ -95,7 +95,10 @@ steps:
       # Auf dem Server laufen die eben gebauten Images, festgenagelt auf diesen
       # Commit – "latest" wäre nicht nachvollziehbar und bei einem Neustart
       # womöglich schon eine andere Fassung.
-      - echo "IMAGE_TAG=${CI_COMMIT_SHA:0:7}" >> .env
+      # Mit Praefix "sha-": Ein Kurz-Hash nur aus Ziffern mit fuehrender Null
+      # (etwa 0269357) macht Kaniko zur Zahl 269357 und pusht unter diesem Tag -
+      # der Server sucht dann vergeblich nach 0269357.
+      - echo "IMAGE_TAG=sha-${CI_COMMIT_SHA:0:7}" >> .env
       - export SSH_OPTS='-o BatchMode=yes -o RequestTTY=no -o ConnectTimeout=30 -o ConnectionAttempts=1 -o StrictHostKeyChecking=accept-new -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -p822'
       - export SCP_OPTS='-o BatchMode=yes -o ConnectTimeout=30 -o ConnectionAttempts=1 -o StrictHostKeyChecking=accept-new -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -P822'
       - timeout 60 sh -c "ssh -n -T $SSH_OPTS \"$SSH_HOST_LOCAL\" \"mkdir -p /services/$SERVICE\""

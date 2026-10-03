@@ -134,10 +134,14 @@ Der Prüfschritt läuft bewusst vor dem Image-Build – so landet eine kaputte
 Fassung gar nicht erst in der Registry.
 
 Ausgerollt wird nicht `latest`, sondern der Commit: Die Pipeline schreibt
-`IMAGE_TAG=<kurz-sha>` in die `.env`, bevor sie sie hochlädt. Damit ist
+`IMAGE_TAG=sha-<kurz-sha>` in die `.env`, bevor sie sie hochlädt. Damit ist
 nachvollziehbar, was läuft, und ein Neustart des Dienstes holt nicht
 versehentlich eine neuere Fassung. Ohne `IMAGE_TAG` fällt die Compose-Datei auf
 `latest` zurück.
+
+Das Präfix `sha-` ist nötig: Einen Kurz-Hash nur aus Ziffern mit führender Null
+(etwa `0269357`) macht Kaniko zur Zahl und taggt `269357` – der Server findet
+das Image dann nicht.
 
 Die Datenbank-Migrationen laufen automatisch beim Start des API-Containers.
 
@@ -294,7 +298,7 @@ ssh -p822 server "systemctl restart ourspots"
 Zurück auf eine frühere Fassung, ohne etwas neu zu bauen:
 
 ```bash
-ssh -p822 server "sed -i 's/^IMAGE_TAG=.*/IMAGE_TAG=<kurz-sha>/' /services/ourspots/.env && systemctl restart ourspots"
+ssh -p822 server "sed -i 's/^IMAGE_TAG=.*/IMAGE_TAG=sha-<kurz-sha>/' /services/ourspots/.env && systemctl restart ourspots"
 ```
 
 ## Wenn etwas klemmt
