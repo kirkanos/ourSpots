@@ -107,4 +107,27 @@ renderer=$(docker compose exec -T "$SERVICE-api" node -e "
 }
 
 echo "   $renderer"
+
+# Der MapLibre-Worker der Reiseanimation. Dass die Datei da ist, genuegt nicht:
+# Kommt sie mit einem Typ an, der nicht nach JavaScript aussieht, lehnt der
+# Browser sie ab, und die Karte bleibt leer -- ohne dass im Netzwerk etwas
+# fehlschlaegt. Genau so ist es einmal in den Betrieb gelangt, weil nginx .mjs
+# von Haus aus nicht kennt.
+echo "== Pruefe den Kartenworker"
+typ=$(docker compose exec -T "$SERVICE-web" \
+  wget -S -q -O /dev/null http://127.0.0.1/maplibre-gl-worker.mjs 2>&1 |
+  sed -n 's/.*[Cc]ontent-[Tt]ype: *//p' | tr -d '\r')
+
+case "$typ" in
+  */javascript*)
+    echo "   $typ"
+    ;;
+  *)
+    echo "Der Kartenworker wird als '${typ:-nichts}' ausgeliefert statt als JavaScript." >&2
+    echo "Die Reiseanimation bliebe damit leer. Siehe docker/web/nginx.conf." >&2
+    bericht
+    exit 1
+    ;;
+esac
+
 echo "== Deploy bestaetigt"
