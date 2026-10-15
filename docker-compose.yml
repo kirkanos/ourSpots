@@ -83,10 +83,16 @@ services:
       NOMINATIM_USER_AGENT: ${NOMINATIM_USER_AGENT}
       PHOTON_URL: ${PHOTON_URL:-https://photon.komoot.io}
       PHOTO_DIR: /data/photos
+      # Die API gibt Renderauftraege beim Videocontainer auf und liest die
+      # fertigen Dateien aus demselben Volume.
+      VIDEO_RENDERER_URL: http://ourspots-video:3100
+      VIDEO_DIR: /data/videos
+      VIDEO_RENDER_TOKEN: ${VIDEO_RENDER_TOKEN}
       MAX_UPLOAD_MB: ${MAX_UPLOAD_MB}
       LOG_LEVEL: ${LOG_LEVEL}
     volumes:
       - photo_data:/data/photos
+      - video_data:/data/videos
     networks:
       - traefik-network
     labels:
@@ -99,6 +105,55 @@ services:
       timeout: 5s
       retries: 5
       start_period: 60s
+
+  # Rendert Reisevideos: ein Chromium fotografiert die Renderseite der
+  # Oberflaeche Bild fuer Bild, ffmpeg macht ein MP4 daraus. Bewusst ein
+  # eigener Container -- ein Browser mit Kartenkacheln und Gelaendemodell hat
+  # im API-Container nichts verloren, und so laesst sich der Speicherhunger
+  # getrennt deckeln.
+  ourspots-video:
+    image: registry.kirkanos.net/images/ourspots-video:${IMAGE_TAG:-latest}
+    container_name: ${SERVICE}-video
+    restart: unless-stopped
+    depends_on:
+      - ourspots-web
+    environment:
+      PORT: 3100
+      # Die Renderseite kommt vom Webcontainer, nicht von der API.
+      WEB_URL: http://ourspots-web:${PORT}
+      VIDEO_DIR: /data/videos
+      VIDEO_RENDER_TOKEN: ${VIDEO_RENDER_TOKEN}
+    volumes:
+      - video_data:/data/videos
+    networks:
+      - traefik-network
+    labels:
+      - "traefik.enable=false"
+    security_opt:
+      - no-new-privileges:true
+    # Chromium mit Gelaendemodell ist der groesste Speicherfresser im Stack.
+    # Gemessen auf einer 392-km-Reise: gut 1,2 GB bei 720p und 1080p, 2,7 GB
+    # bei 4K. Der Bedarf waechst mit der Laenge der Route, weil Chromium die
+    # Kacheln der ganzen Strecke vorhaelt -- bei doppelter Pixeldichte vier Mal
+    # so viele.
+    #
+    # Die Grenze ist kein Budget, sondern eine Notbremse: Belegt wird nur, was
+    # der Lauf braucht, und nur waehrend er laeuft. Laeuft etwas aus dem Ruder,
+    # trifft es den Browser in diesem Container und nicht Datenbank oder API.
+    #
+    # Dieser Wert ist bewusst grosszuegig gewaehlt und wird im Normalbetrieb
+    # nie erreicht. Zu beachten: Je naeher die Grenze an den freien
+    # Arbeitsspeicher des Servers rueckt, desto weniger schuetzt sie -- dann
+    # ist der Speicher schon knapp, bevor der Container seine Grenze sieht,
+    # und der Kernel sucht sich sein Opfer selbst aus.
+    mem_limit: 10g
+    pids_limit: 512
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3100/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
   ourspots-web:
     image: registry.kirkanos.net/images/ourspots-web:${IMAGE_TAG:-latest}
@@ -142,3 +197,7 @@ services:
 volumes:
   db_data:
   photo_data:
+  # Bewusst ein eigenes Volume: Videos sind jederzeit neu erzeugbar und mit
+  # Hunderten Megabyte das Groesste, was hier liegt. Die naechtliche Sicherung
+  # laesst sie deshalb aus, siehe scripts/backup.sh.
+  video_data:

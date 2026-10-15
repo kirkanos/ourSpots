@@ -7,6 +7,7 @@ import type {
   TripStatus,
   WaypointKind,
 } from './enums';
+import type { VideoInput } from './schemas';
 
 /** Was die API zurueckliefert – bewusst getrennt von den Eingabe-Schemas. */
 
@@ -296,4 +297,35 @@ export interface GeocodeResultDto {
   type: string | null;
   country: string | null;
   boundingBox: [number, number, number, number] | null;
+}
+
+/** Stand des Renderauftrags für ein Reisevideo. */
+export interface VideoJobDto {
+  id: string;
+  tripId: string;
+  status: 'wartend' | 'laeuft' | 'fertig' | 'fehler';
+  /** Bereits gerenderte Bilder und wie viele es insgesamt werden. */
+  bilder: number;
+  bilderGesamt: number;
+  bytes: number;
+  /** Länge des fertigen Videos in Sekunden. */
+  dauerS: number;
+  fehler: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Alles, was der Renderer braucht, um ein Video zu zeichnen.
+ *
+ * Bewusst vollständig: Die Renderseite im Browser des Containers fragt nichts
+ * bei der API nach, sondern bekommt die Reise injiziert. Damit braucht der
+ * Renderer keine Anmeldung, und eine Seite, die versehentlich erreichbar wäre,
+ * zeigt ohne Rezept schlicht nichts.
+ */
+export interface VideoRezept {
+  einstellungen: VideoInput;
+  route: TripRouteDto;
+  stages: StageDto[];
+  waypoints: WaypointDto[];
 }

@@ -13,6 +13,7 @@ import { RoutingModule } from './routing/routing.module';
 import { ShareModule } from './share/share.module';
 import { TransferModule } from './transfer/transfer.module';
 import { VehiclesModule } from './vehicles/vehicles.module';
+import { VideoModule } from './video/video.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -29,6 +30,7 @@ import { HealthController } from './health.controller';
     ShareModule,
     TransferModule,
     VehiclesModule,
+    VideoModule,
   ],
   controllers: [HealthController],
   providers: [

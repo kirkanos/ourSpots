@@ -10,12 +10,16 @@ import { TripsPage } from './pages/TripsPage';
 import { TripDetailPage } from './pages/TripDetailPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { PublicTripPage } from './pages/PublicTripPage';
+import { VideoRenderPage } from './pages/VideoRenderPage';
 
 export function App() {
   return (
     <Routes>
       {/* Öffentlicher Teilen-Link: bewusst außerhalb der Anmeldeprüfung. */}
       <Route path="/s/:token" element={<PublicTripPage />} />
+      {/* Buehne fuer den Renderer im Container. Zeigt ohne injiziertes Rezept
+          nichts an und ruft die API nie auf – deshalb ohne Anmeldung. */}
+      <Route path="/video-rendern" element={<VideoRenderPage />} />
       <Route path="*" element={<AuthenticatedApp />} />
     </Routes>
   );

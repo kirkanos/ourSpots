@@ -18,3 +18,5 @@ apps/api/src/generated/
 .vite/
 coverage/
 .env.development
+# Wird beim Start aus node_modules kopiert, siehe apps/web/scripts.
+apps/web/public/maplibre-gl-worker.mjs

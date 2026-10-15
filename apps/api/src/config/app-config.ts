@@ -49,6 +49,16 @@ const envSchema = z.object({
   PHOTON_URL: z.string().url().default('https://photon.komoot.io'),
 
   PHOTO_DIR: z.string().default('/data/photos'),
+
+  /**
+   * Der Rendercontainer fuer Reisevideos. Ohne Adresse bleibt die Funktion
+   * aus -- lokal laeuft meist keiner, und ein Knopf, der nur einen Fehler
+   * ausloest, ist schlimmer als gar keiner.
+   */
+  VIDEO_RENDERER_URL: z.string().default(''),
+  VIDEO_DIR: z.string().default('/data/videos'),
+  /** Gemeinsames Geheimnis zwischen API und Renderer; leer schaltet es ab. */
+  VIDEO_RENDER_TOKEN: z.string().default(''),
   MAX_UPLOAD_MB: z.coerce.number().int().min(1).max(200).default(25),
 
   LOG_LEVEL: z.enum(['error', 'warn', 'log', 'debug', 'verbose']).default('log'),

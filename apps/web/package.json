@@ -4,10 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
+    "dev": "npm run maplibre:worker && vite",
+    "build": "npm run maplibre:worker && tsc -b && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc -b --noEmit"
+    "typecheck": "tsc -b --noEmit",
+    "maplibre:worker": "node scripts/maplibre-worker.mjs",
+    "pruefe": "tsx pruefungen/zeitachse.ts && tsx pruefungen/kamerakurve.ts"
   },
   "dependencies": {
     "@ourspots/shared": "*",
@@ -15,6 +17,7 @@
     "dexie": "^4.0.11",
     "leaflet": "^1.9.4",
     "leaflet.markercluster": "^1.5.3",
+    "maplibre-gl": "^6.14.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-leaflet": "^5.0.0",
@@ -28,6 +31,7 @@
     "@types/react": "^19.0.10",
     "@types/react-dom": "^19.0.4",
     "@vitejs/plugin-react": "^6.1.1",
+    "tsx": "^4.19.3",
     "typescript": "^7.0.2",
     "vite": "^8.3.1",
     "vite-plugin-pwa": "^2.0.0"

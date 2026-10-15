@@ -65,10 +65,34 @@ services:
       NOMINATIM_USER_AGENT: OurSpots-Test (lokal)
       PHOTON_URL: https://photon.komoot.io
       PHOTO_DIR: /data/photos
+      VIDEO_RENDERER_URL: http://ourspots-video:3100
+      VIDEO_DIR: /data/videos
+      VIDEO_RENDER_TOKEN: lokales-rendergeheimnis
       MAX_UPLOAD_MB: 25
       LOG_LEVEL: log
     volumes:
       - photo_data:/data/photos
+      - video_data:/data/videos
+
+  ourspots-video:
+    build:
+      context: .
+      dockerfile: docker/video/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - ourspots-web
+    environment:
+      PORT: 3100
+      WEB_URL: http://ourspots-web:80
+      VIDEO_DIR: /data/videos
+      VIDEO_RENDER_TOKEN: lokales-rendergeheimnis
+    volumes:
+      - video_data:/data/videos
+    # Bewusst niedriger als im Betrieb: Docker Desktop bekommt auf einem
+    # Arbeitsrechner meist deutlich weniger Arbeitsspeicher zugeteilt, als der
+    # Server frei hat. Eine Grenze oberhalb dessen, was die VM ueberhaupt
+    # besitzt, waere bloss Zierde.
+    mem_limit: 4g
 
   ourspots-web:
     build:
@@ -86,3 +110,4 @@ services:
 volumes:
   db_data:
   photo_data:
+  video_data:

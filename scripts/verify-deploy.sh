@@ -86,4 +86,25 @@ antwort=$(docker compose exec -T "$SERVICE-api" node -e "
 }
 
 echo "   $antwort"
+
+# Dass beide Container gesund sind, heisst noch nicht, dass sie einander
+# finden: Im geteilten Netz haengt das am Alias, und ein Tippfehler darin
+# faellt sonst erst auf, wenn jemand ein Video in Auftrag gibt -- und dann als
+# Auftrag, der minutenlang auf nichts wartet. Die Adresse steht hier
+# absichtlich ausgeschrieben: Genau so steht sie als VIDEO_RENDERER_URL in der
+# docker-compose.yml, und geprueft werden soll dieser Wert, nicht ein
+# nachgebauter.
+echo "== Pruefe den Weg von der API zum Renderer"
+renderer=$(docker compose exec -T "$SERVICE-api" node -e "
+  fetch('http://ourspots-video:3100/health')
+    .then((r) => r.json())
+    .then((d) => { console.log(JSON.stringify(d)); process.exit(d.ok ? 0 : 1); })
+    .catch((e) => { console.log('nicht erreichbar: ' + e); process.exit(1); });
+") || {
+  echo "Der Rendercontainer ist von der API aus nicht erreichbar: ${renderer:-keine Antwort}" >&2
+  bericht
+  exit 1
+}
+
+echo "   $renderer"
 echo "== Deploy bestaetigt"

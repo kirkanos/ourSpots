@@ -96,3 +96,50 @@ gebauten Stand. Dafür `docker compose up -d --build` benutzen.
 Einen kostenlosen Schlüssel auf https://openrouteservice.org/dev/#/signup holen
 und in `.env.development` bei `ORS_API_KEY` eintragen, dann `npm run dev:api`
 neu starten. Ohne Schlüssel bleibt der Rest der App vollständig benutzbar.
+
+## Reisevideo lokal rendern
+
+Die Vorschau im Reiter „Video" läuft ohne weiteres Zutun. Das Erzeugen der
+fertigen Datei braucht den Renderer aus `docker/video` – ein eigener Dienst, der
+Chromium steuert und ffmpeg füttert.
+
+Am einfachsten über den vollständigen Stack, da ist alles verdrahtet:
+
+```bash
+docker compose -f docker-compose.local.yml up -d --build   # http://localhost:8085
+```
+
+Gegen die Entwicklungsserver geht es auch, dann aber von Hand. ffmpeg muss
+dafür auf dem Rechner liegen (`brew install ffmpeg`):
+
+```bash
+cd docker/video
+npm install
+npx playwright install chromium
+
+WEB_URL=http://localhost:5173 \
+VIDEO_DIR="$PWD/../../apps/api/data/videos" \
+node server.mjs
+```
+
+Das `VIDEO_DIR` ist nicht beliebig: Die API liest die fertige Datei aus ihrem
+eigenen `VIDEO_DIR`, und das steht in `.env.development` relativ zu `apps/api`.
+Zeigen beide nicht auf dasselbe Verzeichnis, rendert der Lauf durch, aber der
+Download antwortet mit 404.
+
+Dann in `.env.development` noch
+
+```
+VIDEO_RENDERER_URL=http://127.0.0.1:3100
+```
+
+setzen und die API neu starten. Ohne diesen Wert blendet die Oberfläche das
+Erzeugen aus – ein Knopf, der nur einen Fehler auslöst, wäre schlimmer als
+keiner.
+
+**Wie lange das dauert.** Jedes Bild ist ein eigener Screenshot, und die Karte
+muss dafür fertig geladen sein. Gemessen wurden 1,5 s je Bild nativ und bis zu
+3,9 s im Container bei 1080p, 6,6 s bei 4K. **Eine Minute Video bei 25 Bildern
+je Sekunde dauert damit ein bis drei Stunden.** Zum Ausprobieren unbedingt in
+der Oberfläche „Sekunden je 100 km" herunterdrehen und die Bildrate auf 12
+stellen – dann ist ein Testlauf in wenigen Minuten durch.

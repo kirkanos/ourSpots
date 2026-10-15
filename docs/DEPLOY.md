@@ -156,12 +156,13 @@ docker compose logs -f api
 
 ## Netzwerk
 
-Alle drei Container hängen im `traefik-network`, damit der Monitoring-Stack sie
-erreicht. Geroutet wird trotzdem nur der Webcontainer – Datenbank und API tragen
-`traefik.enable=false`.
+Alle vier Container hängen im `traefik-network`, damit der Monitoring-Stack sie
+erreicht. Geroutet wird trotzdem nur der Webcontainer – Datenbank, API und
+Renderer tragen `traefik.enable=false`.
 
 Weil in diesem Netz auch die Container anderer Projekte laufen, heißen die
-Dienste selbst schon eindeutig – `ourspots-db`, `ourspots-api`, `ourspots-web`.
+Dienste selbst schon eindeutig – `ourspots-db`, `ourspots-api`, `ourspots-web`,
+`ourspots-video`.
 Der Grund: Compose vergibt den **Dienstnamen** automatisch als Netz-Alias. Hieße
 der Dienst wie üblich `db`, wäre der Container im geteilten Netz unter `db`
 erreichbar, und ein zweites Projekt mit einem Dienst gleichen Namens wäre es
@@ -173,12 +174,86 @@ ersetzen.
 |---|---|
 | `ourspots-db` | der API über `DATABASE_URL` |
 | `ourspots-api` | nginx über `proxy_pass` |
-| `ourspots-web` | Traefik, über Labels statt über DNS |
+| `ourspots-web` | Traefik, über Labels statt über DNS; dazu dem Renderer, der dort die Renderseite holt |
+| `ourspots-video` | der API über `VIDEO_RENDERER_URL` |
 
 Das hat eine Kehrseite: Die Datenbank ist damit für jeden Container im
 `traefik-network` erreichbar, nicht mehr nur für die eigene API. Nach außen
 ändert sich nichts – veröffentlicht wird kein Port –, aber der Schutz ist jetzt
 allein das Passwort.
+
+## Reisevideos
+
+`ourspots-video` rendert die Reisevideos: ein Chromium öffnet die Renderseite
+des Webcontainers (`/video-rendern`), wird Bild für Bild weitergeschaltet und
+fotografiert jedes einzeln; ffmpeg macht daraus ein MP4. Die Aufträge verwaltet
+die API, das Rendern passiert dort drüben.
+
+Drei Punkte, die im Betrieb zählen:
+
+**Speicher.** Chromium mit Kartenkacheln und Höhenmodell ist der größte
+Speicherfresser im Stack: gemessen gut 1,1 GB bei 720p, mehr bei 1080p. Der
+Container ist auf 10 GB gedeckelt: Ein 4K-Lauf über die 392-km-Testreise stieg
+auf 2,7 GB, und der Bedarf wächst mit der Länge der Route, weil Chromium die
+Kacheln der gesamten Strecke vorhält. Der Wert ist reine Reserve und wird im
+Normalbetrieb nie erreicht. Die Grenze ist kein Budget, sondern eine
+Notbremse – belegt wird nur, was der Lauf tatsächlich braucht, und nur während
+er läuft. Sie knapp zu setzen bringt nichts: Dann brechen Aufträge mitten im
+Lauf ab, statt dass weniger Speicher gebraucht würde.
+
+Umgekehrt gilt aber auch: **Je näher die Grenze an den freien Arbeitsspeicher
+des Servers rückt, desto weniger schützt sie.** Der Sinn der Grenze ist, dass
+bei einem Ausreißer der Browser in diesem Container stirbt und nicht Datenbank
+oder API. Liegt sie oberhalb dessen, was wirklich frei ist, ist der Speicher
+schon knapp, bevor der Container seine Grenze überhaupt sieht – dann sucht sich
+der Kernel sein Opfer selbst aus, und das muss nicht der Renderer sein. Wer den
+Server später mit weiteren Diensten füllt, sollte diesen Wert deshalb noch
+einmal gegen `free -h` halten.
+
+**Dauer.** Jedes Bild ist ein eigener Screenshot, und die Karte muss dafür
+fertig geladen sein. Gemessen auf derselben Testreise (392 km, Container ohne
+Grafikbeschleunigung), Sekunden je Bild:
+
+| Stufe | je Bild | eine Minute Video bei 25 B/s |
+|---|---|---|
+| 720p | 1,5 – 3,0 s | 40 – 75 min |
+| 1080p | ~3,9 s | ~100 min |
+| 4K | ~6,6 s | ~165 min |
+
+Die Spanne bei 720p ist der Unterschied zwischen nativer Ausführung und einer
+virtualisierten Docker-Umgebung; auf einem echten Linux-Server ist eher das
+untere Ende zu erwarten. **Ein Video von einer Minute dauert damit ein bis drei
+Stunden.** Wer das abkürzen will, dreht die Bildrate auf 12 herunter – das
+halbiert die Zeit – oder hält das Video kurz.
+
+Der Engpass ist dabei nicht die Rechenleistung: Während eines Laufs steht die
+CPU immer wieder bei 0 %, während Chromium auf Kacheln von OpenFreeMap und auf
+die Höhendaten von AWS wartet. Mehr Arbeitsspeicher oder mehr Kerne ändern daran
+wenig. Es läuft
+immer nur ein Auftrag gleichzeitig, und ein Neustart des Stacks bricht einen
+laufenden ab – die API meldet ihn danach ehrlich als gescheitert, statt den
+Nutzer auf einen Fortschritt warten zu lassen, der nie kommt.
+
+**Auflösung.** Die Stufen unterscheiden sich nicht in der Fenstergröße, sondern
+in der Pixeldichte: 1080p und 4K zeigen **denselben Kartenausschnitt**, 4K
+zeichnet ihn nur doppelt so fein. Das ist bei einer Vektorkarte der richtige
+Hebel – ein breiteres Fenster würde bei gleicher Zoomstufe mehr Landschaft
+zeigen statt dieselbe schärfer. Hochrechnen eines fertigen Videos ist dagegen
+nie sinnvoll: Es erfindet Details, die aus den Vektordaten ohnehin vorliegen.
+Bezahlt wird die Schärfe mit Rechenzeit und Dateigröße: 4K brauchte in der
+Messung die anderthalbfache Zeit von 1080p und ergab eine rund drei Mal so
+große Datei. MapLibre holt bei doppelter Dichte zusätzlich Kacheln einer
+tieferen Zoomstufe – daher auch der höhere Speicherbedarf.
+
+**Ablage.** Die fertigen Dateien liegen im Volume `video_data`, getrennt von den
+Fotos. Je Reise wird nur das letzte Video aufbewahrt; ein neuer Lauf ersetzt das
+alte samt Datei. Die nächtliche Sicherung lässt sie bewusst aus: Sie sind
+jederzeit aus der Reise neu erzeugbar und wären mit Hunderten Megabyte das
+Größte im Archiv.
+
+Zwischen API und Renderer steht `VIDEO_RENDER_TOKEN` aus der `.env`. Beide
+hängen im geteilten `traefik-network`; ohne das Token könnte dort jeder Nachbar
+Renderaufträge aufgeben.
 
 ## Datenbank-Hauptversionen
 
@@ -210,6 +285,9 @@ alles, was eine Wiederherstellung braucht:
 | `datenbank.sql` | vollständiger Dump aus `mariadb-dump` |
 | `fotos.tar` | Inhalt des Volumes `photo_data` (`/data/photos` im API-Container) |
 | `env` | die Konfiguration des Servers |
+
+Nicht enthalten sind die gerenderten Reisevideos aus dem Volume `video_data` –
+siehe oben.
 
 Die Fotos liegen bewusst nicht in der Datenbank, aber ein Backup ohne sie wäre
 unvollständig: die Datensätze verweisen dann auf fehlende Dateien. Deshalb

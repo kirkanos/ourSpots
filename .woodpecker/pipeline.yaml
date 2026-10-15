@@ -39,6 +39,14 @@ steps:
       - npm run build --workspace @ourspots/shared
       - npm run typecheck
       - npm run build --workspace @ourspots/web
+      # Zeitachse und Kamerakurve der Reiseanimation sind reine Rechnerei; ob
+      # sie stimmt, sieht man im fertigen Video gerade nicht. Siehe
+      # apps/web/pruefungen/README.md.
+      - npm run pruefe --workspace @ourspots/web
+      # Der Renderer liegt ausserhalb der Workspaces und hat deshalb keine
+      # Typpruefung. Eine Syntaxpruefung kostet nichts und faengt wenigstens
+      # das ab, was sonst erst der laufende Container meldet.
+      - node --check docker/video/server.mjs
     when:
       - event: push
 
@@ -69,6 +77,23 @@ steps:
       # Keine build_args: Kaniko reicht sie als Kommandozeilenargumente weiter
       # und zerbricht an Werten mit Leerzeichen. Die Kartenquelle steht als
       # Vorgabe in apps/web/src/lib/env.ts und ist dort dieselbe.
+      username:
+        from_secret: docker_username
+      password:
+        from_secret: docker_password
+      tags:
+        - latest
+        - "sha-${CI_COMMIT_SHA:0:7}"
+    when:
+      - event: push
+
+  - name: build video image
+    image: woodpeckerci/plugin-kaniko
+    settings:
+      registry: registry.kirkanos.net
+      repo: images/ourspots-video
+      dockerfile: docker/video/Dockerfile
+      context: .
       username:
         from_secret: docker_username
       password:

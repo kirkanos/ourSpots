@@ -14,6 +14,11 @@
 #   fotos.tar       Inhalt des Volumes photo_data
 #   env             die Konfiguration des Servers
 #
+# Nicht enthalten sind die gerenderten Reisevideos. Sie liegen in einem eigenen
+# Volume (video_data), sind jederzeit aus der Reise neu erzeugbar und waeren
+# mit Hunderten Megabyte das Groesste im Archiv -- jede Nacht neu hochgeladen.
+# Wer sie doch sichern will, braucht ein eigenes Archiv, nicht diese Zeile hier.
+#
 # Es wird unverschluesselt hochgeladen. In der Nextcloud liegen damit das
 # Datenbankpasswort, der Session-Schluessel, das OIDC-Secret und die als privat
 # markierten Notizen im Klartext -- der Ordner dort gehoert entsprechend

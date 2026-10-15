@@ -173,6 +173,14 @@ a { color: var(--accent); }
 }
 
 .card--link { display: block; color: inherit; text-decoration: none; }
+
+/* Karte innerhalb einer Karte – ohne Schatten und mit weniger Polsterung,
+   sonst staffeln sich die Ebenen optisch zu stark. */
+.card--flach {
+  box-shadow: none;
+  background: var(--surface-alt);
+  padding: 0.7rem 0.8rem;
+}
 .card--link:hover { border-color: var(--accent); }
 
 .grid { display: grid; gap: 0.75rem; }
@@ -323,6 +331,240 @@ fieldset { border: none; padding: 0; margin: 0; }
 .stars--input button[aria-pressed='true'] { color: var(--warning); }
 .star--on { color: var(--warning); }
 .star--off { color: var(--border); }
+
+/* --- Reisevideo ------------------------------------------------------------ */
+
+/* Selbst gehostet statt ueber Google Fonts: Der Rendercontainer muss dieselbe
+   Schrift zeichnen wie der Browser des Nutzers, sonst sieht das Video anders
+   aus als die Vorschau. Siehe public/fonts/HERKUNFT.md.
+   latin-ext wird nur geholt, wenn ein Name wirklich ein Zeichen daraus
+   enthaelt -- dafuer sorgt der unicode-range. */
+@font-face {
+  font-family: 'Caveat';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/caveat-700-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+2000-206F, U+2122, U+2191, U+2193, U+2212, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Caveat';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/caveat-700-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+1E00-1EFF, U+2020, U+20A0-20AB, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Roboto Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/roboto-mono-400-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+2000-206F, U+2122, U+2191, U+2193, U+2212, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Roboto Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/roboto-mono-400-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+1E00-1EFF, U+2020, U+20A0-20AB, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* Dieselbe dunkle Kontur wie die Fahrzeugmarker in video/marker.ts – Schild
+   und Wohnmobil sollen erkennbar zusammengehoeren. */
+:root { --videokontur: #16232c; }
+
+.video-buehne {
+  position: relative;
+  /* Seitenverhaeltnis wie das spaetere Video, damit die Vorschau denselben
+     Ausschnitt zeigt und nicht mehr oder weniger Karte. */
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--surface-alt);
+}
+
+.video-karte { position: absolute; inset: 0; }
+
+.video-einblendung {
+  position: absolute;
+  left: 0.75rem;
+  bottom: 0.75rem;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-sm);
+  background: rgb(18 54 45 / 0.82);
+  color: #fff;
+  font-size: 0.9rem;
+  pointer-events: none;
+}
+
+.video-einblendung span { font-size: 0.8rem; opacity: 0.85; }
+
+/* Das Schild an einer Etappe: Tafel auf einem Pfosten, der auf dem Ort steht.
+   Das aeussere Element gehoert MapLibre (Position und, bei Gelaende, die
+   Deckkraft verdeckter Marker). Ein- und Ausblenden passiert deshalb auf
+   .etappenschild__inhalt -- siehe video/szene.ts. */
+.etappenschild {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* Eigener Massstab fuer Text: mit der Geometrie skaliert waere die
+     Beschriftung bei weiten Ausschnitten unleserlich klein. --videoskala
+     setzt nur der Renderer, damit ein 1080p-Video keine Schrift bekommt, die
+     relativ zum Bild kleiner ist als in der Vorschau. */
+  font-size: calc(0.8rem * var(--videoskala, 1));
+  font-weight: 650;
+  line-height: 1.2;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.etappenschild__inhalt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transition: opacity 120ms linear;
+  transform: translateY(var(--hub, 0));
+}
+
+/* Die Tafel. Harter, nicht weichgezeichneter Schlagschatten: Ein weicher
+   Schatten verschwimmt ueber einer gemusterten Karte, ein harter setzt die
+   Tafel in jedem Untergrund sauber ab -- auch ueber dem Satellitenbild. */
+.etappenschild__tafel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.05em;
+  padding: 0.35em 0.75em 0.3em;
+  border-radius: 0.7em;
+  background: #f5f7f2;
+  border: 0.17em solid var(--videokontur);
+  box-shadow: 0.25em 0.3em 0 rgb(22 35 44 / 0.75);
+}
+
+/* Handschrift fuer den Ortsnamen. Ein Reisevideo ist kein Fahrplan -- und die
+   Schrift liegt selbst gehostet bei, damit der Rendercontainer dieselbe
+   zeichnet wie der Browser. */
+.etappenschild__name {
+  font-family: 'Caveat', cursive;
+  font-weight: 700;
+  font-size: 1.75em;
+  line-height: 1;
+  color: var(--videokontur);
+}
+
+/* Der Kilometerstand dagegen in Festbreite: Zahlen springen sonst von Schild
+   zu Schild in der Breite, und das faellt bei einem Schwenk sofort auf. */
+.etappenschild__km {
+  font-family: 'Roboto Mono', ui-monospace, monospace;
+  font-size: 0.72em;
+  font-weight: 400;
+  letter-spacing: 0.09em;
+  line-height: 1;
+  color: #6f7a74;
+}
+
+/* Gestrichelte Verbindung von der Tafel zum Ort. Kein durchgezogener Pfosten:
+   Die Tafel steht nicht auf dem Ort, sie zeigt auf ihn.
+
+   Die Hoehe ist nicht frei gewaehlt: Am Halt steht das Fahrzeug genau auf
+   derselben Koordinate und ragt gut zwei Zeilenhoehen nach oben. Ein kuerzerer
+   Pfosten schoebe die Tafel mitten ins Wohnmobil. */
+.etappenschild__pfosten {
+  width: 0.17em;
+  height: 2.9em;
+  background: repeating-linear-gradient(
+    to bottom,
+    var(--videokontur) 0 0.28em,
+    transparent 0.28em 0.56em
+  );
+}
+
+/* Der Punkt sitzt genau auf der Koordinate – der Marker ist unten verankert. */
+.etappenschild__punkt {
+  width: 0.62em;
+  height: 0.62em;
+  border-radius: 50%;
+  background: #f5f7f2;
+  border: 0.17em solid var(--videokontur);
+  margin-bottom: -0.31em;
+}
+
+.fahrzeugmarker {
+  width: calc(52px * var(--videoskala, 1));
+  height: calc(52px * var(--videoskala, 1));
+}
+
+.fahrzeugmarker svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* Eigene Huelle fuer die Ausrichtung – das transform des aeusseren Elements
+   gehoert MapLibre, das darauf die Position schreibt. */
+.fahrzeugmarker__bild {
+  display: block;
+  transform-origin: 50% 50%;
+}
+
+.fahrzeugmarker svg { display: block; }
+
+/* Fortschritt eines Renderauftrags. Eigene Regeln, weil <progress> sonst in
+   jedem Browser anders aussieht als der Rest der Oberflaeche. */
+.video-fortschritt {
+  width: 100%;
+  height: 10px;
+  border: none;
+  border-radius: 999px;
+  background: var(--surface-alt);
+  overflow: hidden;
+}
+
+.video-fortschritt::-webkit-progress-bar { background: var(--surface-alt); }
+.video-fortschritt::-webkit-progress-value { background: var(--green-700); }
+.video-fortschritt::-moz-progress-bar { background: var(--green-700); }
+
+/* --- Buehne des Renderers -------------------------------------------------
+   Diese Seite oeffnet nur der Renderer im Container. Sie ist kein Ausschnitt
+   einer Oberflaeche, sondern genau das Rechteck, das fotografiert wird. */
+
+.videobuehne {
+  position: relative;
+  overflow: hidden;
+  background: var(--surface-alt);
+}
+
+.videobuehne__karte { position: absolute; inset: 0; }
+
+.videobuehne__fehler {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  place-content: center;
+  padding: 2rem;
+  text-align: center;
+  background: #fff;
+  color: var(--danger, #a4332c);
+  font-size: 1.2rem;
+}
+
+/* Der Renderer haelt die Zeit selbst an und fotografiert Bild fuer Bild. Eine
+   zeitgesteuerte Ueberblendung wuerde dabei je nach Laufzeit des Fotos mal
+   weiter, mal weniger weit fortgeschritten sein -- dasselbe Video zweimal
+   gerendert saehe unterschiedlich aus. */
+.videobuehne *,
+.videobuehne *::before,
+.videobuehne *::after {
+  transition: none !important;
+  animation: none !important;
+}
 
 /* --- Karte ---------------------------------------------------------------- */
 

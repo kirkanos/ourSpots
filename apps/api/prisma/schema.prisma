@@ -47,6 +47,7 @@ model User {
   createdSpots Spot[]        @relation("SpotCreator")
   photos       Photo[]
   shareLinks   ShareLink[]
+  videoJobs    VideoJob[]
 
   @@index([email])
 }
@@ -110,6 +111,7 @@ model Trip {
   fuelLogs    FuelLog[]
   expenses    Expense[]
   shareLinks  ShareLink[]
+  videoJobs   VideoJob[]
 
   @@index([ownerId])
   @@index([startDate])
@@ -329,4 +331,32 @@ model GeocodeCache {
   createdAt DateTime @default(now())
 
   @@index([createdAt])
+}
+
+/// Auftrag zum Rendern des Reisevideos.
+///
+/// Das Rendern dauert Minuten und ueberlebt keine HTTP-Anfrage, deshalb ein
+/// Auftrag in der Datenbank statt einer langen Antwort. Je Reise bleibt immer
+/// nur der letzte Auftrag stehen: Ein neuer Lauf ersetzt den alten samt Datei,
+/// sonst sammeln sich Videos an, die niemand mehr sehen will.
+model VideoJob {
+  id        String   @id @db.Char(36)
+  tripId    String   @unique @db.Char(36)
+  trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  startedById String @db.Char(36)
+  startedBy User     @relation(fields: [startedById], references: [id])
+  /// wartend | laeuft | fertig | fehler
+  status    String   @default("wartend") @db.VarChar(20)
+  /// Die Einstellungen, mit denen gerendert wird -- als JSON, damit neue
+  /// Regler keine Migration brauchen.
+  rezept    String   @db.LongText
+  bilder    Int      @default(0)
+  bilderGesamt Int   @default(0)
+  bytes     Int      @default(0)
+  dauerS    Float    @default(0) @db.Double
+  fehler    String?  @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
 }

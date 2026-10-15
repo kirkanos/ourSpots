@@ -29,6 +29,8 @@ import type {
   UserDto,
   WaypointDto,
   WaypointInput,
+  VideoInput,
+  VideoJobDto,
 } from '@ourspots/shared';
 import { api, buildQuery } from './client';
 import { isOfflineError } from '../offline/db';
@@ -558,4 +560,50 @@ export function useGeocode(query: string) {
 
 export function reverseGeocode(lat: number, lon: number): Promise<GeocodeResultDto | null> {
   return api<GeocodeResultDto | null>(`/reverse${buildQuery({ lat, lon })}`);
+}
+
+// --- Reisevideo ------------------------------------------------------------
+
+/** Ist auf diesem Server ein Renderer eingerichtet? */
+export function useVideoStatus(): UseQueryResult<{ configured: boolean }> {
+  return useQuery({
+    queryKey: ['video-status'],
+    queryFn: () => api<{ configured: boolean }>('/video/status'),
+    staleTime: Infinity,
+  });
+}
+
+/**
+ * Der Renderauftrag dieser Reise.
+ *
+ * Fragt waehrend des Renderns regelmaessig nach -- ein Lauf dauert Minuten,
+ * und ohne Nachfragen bliebe der Fortschritt stehen, bis jemand die Seite neu
+ * laedt. Ist nichts in Arbeit, wird auch nicht nachgefragt.
+ */
+export function useVideoJob(tripId: string): UseQueryResult<VideoJobDto | null> {
+  return useQuery({
+    queryKey: ['video', tripId],
+    queryFn: () => api<VideoJobDto | null>(`/trips/${tripId}/video`),
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status === 'wartend' || status === 'laeuft' ? 3000 : false;
+    },
+  });
+}
+
+export function useStartVideo(tripId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (eingabe: VideoInput) =>
+      api<VideoJobDto>(`/trips/${tripId}/video`, { method: 'POST', body: eingabe }),
+    onSuccess: (job) => qc.setQueryData(['video', tripId], job),
+  });
+}
+
+export function useDeleteVideo(tripId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api<void>(`/trips/${tripId}/video`, { method: 'DELETE' }),
+    onSuccess: () => qc.setQueryData(['video', tripId], null),
+  });
 }

@@ -22,6 +22,7 @@ import {
 import { BaseMap } from '../components/map/BaseMap';
 import { spotIcon } from '../components/map/markerIcons';
 import { RoutePlanner } from '../components/trip/RoutePlanner';
+import { TripVideo } from '../components/trip/TripVideo';
 import { TripJournal } from '../components/trip/TripJournal';
 import { TripStats } from '../components/trip/TripStats';
 import { SharePanel } from '../components/trip/SharePanel';
@@ -31,6 +32,7 @@ import { formatDate, formatDateRange } from '../lib/format';
 
 const TABS = [
   { key: 'route', label: 'Route' },
+  { key: 'video', label: 'Video' },
   { key: 'plaetze', label: 'Stellplätze' },
   { key: 'tagebuch', label: 'Tagebuch' },
   { key: 'kosten', label: 'Kosten' },
@@ -101,6 +103,7 @@ export function TripDetailPage() {
       </div>
 
       {tab === 'route' && <RoutePlanner tripId={id} canEdit={canEdit} />}
+      {tab === 'video' && <TripVideo tripId={id} />}
       {tab === 'plaetze' && <TripSpots tripId={id} />}
       {tab === 'tagebuch' && <TripJournal tripId={id} canEdit={canEdit} />}
       {tab === 'kosten' && <TripStats tripId={id} />}
