@@ -8,7 +8,7 @@ import { crosshairIcon } from '../components/map/markerIcons';
 import { StarRating } from '../components/StarRating';
 import { IconCrosshair, IconPlus } from '../components/Icons';
 import { useSpots, type SpotFilters } from '../api/hooks';
-import { downloadTiles } from '../offline/tiles';
+import { downloadTiles, vorladenErlaubt } from '../offline/tiles';
 import { formatDate } from '../lib/format';
 
 export function MapPage() {
@@ -21,6 +21,7 @@ export function MapPage() {
   >(null);
   const [tileState, setTileState] = useState<'idle' | 'loading' | 'done'>('idle');
   const [tileCount, setTileCount] = useState(0);
+  const darfVorladen = useMemo(() => vorladenErlaubt(), []);
 
   // Ohne bbox-Filter: die Gesamtmenge ist für einen privaten Bestand klein
   // genug, und so bleibt die Karte beim Verschieben ruhig statt nachzuladen.
@@ -37,9 +38,10 @@ export function MapPage() {
   };
 
   /**
-   * Lädt die Kacheln des sichtbaren Ausschnitts für die Offline-Nutzung. Drei
-   * Zoomstufen über dem aktuellen reichen, um unterwegs die Umgebung zu sehen;
-   * mehr wäre gegenüber den Kachelservern unhöflich.
+   * Lädt die Kacheln des sichtbaren Ausschnitts für die Offline-Nutzung. Zwei
+   * Zoomstufen über dem aktuellen reichen, um unterwegs die Umgebung zu sehen –
+   * jede weitere vervierfacht die Zahl der Kacheln und wäre nach einem Bruchteil
+   * des Ausschnitts an der Obergrenze.
    */
   const saveTiles = async () => {
     if (!bounds) return;
@@ -48,8 +50,8 @@ export function MapPage() {
     const result = await downloadTiles(
       bounds,
       Math.max(5, zoom),
-      Math.min(16, Math.max(5, zoom) + 3),
-      1500,
+      Math.min(16, Math.max(5, zoom) + 2),
+      250,
       (progress) => setTileCount(progress.done),
     );
     setTileCount(result.done);
@@ -116,18 +118,25 @@ export function MapPage() {
           )}
         </BaseMap>
 
-        <button
-          type="button"
-          className="btn btn--ghost map-tiles"
-          onClick={() => void saveTiles()}
-          disabled={!bounds || tileState === 'loading'}
-        >
-          {tileState === 'loading'
-            ? `${tileCount} Kacheln …`
-            : tileState === 'done'
-              ? `${tileCount} Kacheln offline`
-              : 'Ausschnitt offline sichern'}
-        </button>
+        {/*
+          Ohne eigene Kachelquelle gibt es den Knopf nicht: Die Kacheln von
+          OpenStreetMap duerfen nicht auf Vorrat geholt werden. Siehe
+          vorladenErlaubt().
+        */}
+        {darfVorladen && (
+          <button
+            type="button"
+            className="btn btn--ghost map-tiles"
+            onClick={() => void saveTiles()}
+            disabled={!bounds || tileState === 'loading'}
+          >
+            {tileState === 'loading'
+              ? `${tileCount} Kacheln …`
+              : tileState === 'done'
+                ? `${tileCount} Kacheln offline`
+                : 'Ausschnitt offline sichern'}
+          </button>
+        )}
 
         <button type="button" className="btn map-fab" onClick={() => navigate('/erfassen')}>
           <IconPlus />
