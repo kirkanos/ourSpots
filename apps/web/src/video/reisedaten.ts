@@ -28,8 +28,13 @@ export function baueReisedaten(
 
   for (const leg of route.legs) {
     const teil = decodePolyline(leg.geometry).map(([lat, lon]) => [lon, lat] as Punkt);
-    if (teil.length === 0) continue;
-    punkte.push(...(punkte.length > 0 ? teil.slice(1) : teil));
+    // Auch eine leere Teilroute bekommt ihren Eintrag: `grenzen` wird weiter
+    // unten ueber den Index der Teilroute gelesen. Ein uebersprungener Eintrag
+    // wuerde alle folgenden um eins verschieben -- dann saessen Etappengrenzen
+    // und Stationen an falschen Stellen, und die letzte Etappe fiele ganz weg.
+    // Der hier eingetragene Wert ist das bisherige Ende; die Etappe faellt
+    // damit als leer durch die Pruefung "bisIndex <= vonIndex".
+    if (teil.length > 0) punkte.push(...(punkte.length > 0 ? teil.slice(1) : teil));
     grenzen.push(punkte.length - 1);
   }
 
