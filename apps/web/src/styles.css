@@ -205,6 +205,20 @@ a { color: var(--accent); }
   column-gap: 0.6rem;
   row-gap: 0.4rem;
 }
+/* Die Spaltenbeschriftung. Klein und zurueckgenommen: Sie soll einordnen, was
+   in der Spalte steht, und nicht mit den Stationsnamen konkurrieren. */
+.stationen__kopf {
+  font-size: 0.78em;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  padding-bottom: 0.15rem;
+}
+.stationen__kopf--rechts { text-align: right; }
+/* Mittig unter der Beschriftung "Schild", nicht an deren linkem Rand. */
+.stationen > input[type='checkbox'] { justify-self: center; }
+/* Ueber Regler und Dauer zugleich -- beides gehoert zum Halt. */
+.stationen__kopf--halt { grid-column: 4 / 6; text-align: center; }
+
 .stationen__name {
   min-width: 0;
   max-width: 20rem;
@@ -241,6 +255,9 @@ a { color: var(--accent); }
   /* Jede Station belegt hier mehrere Zeilen. Das Häkchen eröffnet eine neue –
      ein Abstand davor trennt die Stationen, ohne dass es eine Linie braucht. */
   .stationen > input[type='checkbox'] ~ input[type='checkbox'] { margin-top: 0.6rem; }
+  /* Bei umgebrochenen Zeilen stehen die Spalten nicht mehr unter ihrer
+     Beschriftung -- dann irrefuehrender als hilfreich. */
+  .stationen__kopf { display: none; }
 }
 .stack { display: flex; flex-direction: column; gap: 0.75rem; }
 

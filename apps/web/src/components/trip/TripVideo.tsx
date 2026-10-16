@@ -738,6 +738,27 @@ export function TripVideo({ tripId }: Props) {
                   Gitter, sonst richtet sich nichts spaltenweise aus.
                 */}
                 <div className="stationen">
+                  {/*
+                    Die Beschriftung der Spalten. aria-hidden, weil es kein
+                    <table> ist -- fuer die Vorlesefunktion haengt die
+                    Bezeichnung am jeweiligen Bedienelement, hier stuenden
+                    sonst fuenf lose Woerter im Raum.
+                  */}
+                  <span className="stationen__kopf" aria-hidden="true">
+                    Schild
+                  </span>
+                  <span className="stationen__kopf" aria-hidden="true">
+                    Station
+                  </span>
+                  <span className="stationen__kopf stationen__kopf--rechts" aria-hidden="true">
+                    km
+                  </span>
+                  <span className="stationen__kopf stationen__kopf--halt" aria-hidden="true">
+                    Halt
+                  </span>
+                  <span className="stationen__kopf" aria-hidden="true">
+                    Foto
+                  </span>
                   {stationsIndizes.map((i) => {
                     const station = daten.stationen[i]!;
                     const vorgabe = vorgabeFuerStation(station, einstellungen);
