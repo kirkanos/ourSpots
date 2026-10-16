@@ -530,6 +530,50 @@ fieldset { border: none; padding: 0; margin: 0; }
 .video-fortschritt::-webkit-progress-value { background: var(--green-700); }
 .video-fortschritt::-moz-progress-bar { background: var(--green-700); }
 
+/* Das Foto eines Halts. Fest in der Ecke statt als Marker auf der Karte:
+   Ein Bild, das mitwandert und sich unter der geneigten Kamera verzerrt, ist
+   nicht mehr anzusehen. Dieselbe Bildsprache wie das Etappenschild -- weisser
+   Rand, harter Schlagschatten. */
+.videofoto {
+  position: absolute;
+  right: calc(1.4rem * var(--videoskala, 1));
+  bottom: calc(1.4rem * var(--videoskala, 1));
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: calc(0.3rem * var(--videoskala, 1));
+  width: calc(13rem * var(--videoskala, 1));
+  padding: calc(0.45rem * var(--videoskala, 1));
+  border-radius: calc(0.55rem * var(--videoskala, 1));
+  background: #f5f7f2;
+  border: calc(0.14rem * var(--videoskala, 1)) solid var(--videokontur);
+  box-shadow: calc(0.25rem * var(--videoskala, 1)) calc(0.3rem * var(--videoskala, 1)) 0
+    rgb(22 35 44 / 0.75);
+  pointer-events: none;
+}
+
+.videofoto__bild {
+  display: block;
+  width: 100%;
+  /* Festes Seitenverhaeltnis: Sonst springt der Rahmen, sobald ein Hochformat
+     auf ein Querformat folgt. */
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: calc(0.3rem * var(--videoskala, 1));
+  background: var(--surface-alt);
+}
+
+.videofoto__text {
+  font-size: calc(0.72rem * var(--videoskala, 1));
+  line-height: 1.25;
+  color: var(--videokontur);
+  /* Lange Bildunterschriften duerfen den Rahmen nicht sprengen. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 /* --- Buehne des Renderers -------------------------------------------------
    Diese Seite oeffnet nur der Renderer im Container. Sie ist kein Ausschnitt
    einer Oberflaeche, sondern genau das Rechteck, das fotografiert wird. */

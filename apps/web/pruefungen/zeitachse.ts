@@ -27,10 +27,10 @@ const MIT_TEMPO = {
   ...VORGABE,
   kameraPunkte: [
     { anteil: 0,     zoom: VORGABE.fahrtZoom, neigung: VORGABE.neigung, tempo: 1 },
-    { anteil: 0.399, zoom: VORGABE.fahrtZoom, neigung: VORGABE.neigung, tempo: 1, drehung: 0, halt: 0 },
-    { anteil: 0.401, zoom: VORGABE.fahrtZoom, neigung: VORGABE.neigung, tempo: 2, drehung: 0, halt: 0 },
-    { anteil: 0.699, zoom: VORGABE.fahrtZoom, neigung: VORGABE.neigung, tempo: 2, drehung: 0, halt: 0 },
-    { anteil: 0.701, zoom: VORGABE.fahrtZoom, neigung: VORGABE.neigung, tempo: 1, drehung: 0, halt: 0 },
+    { anteil: 0.399, zoom: VORGABE.fahrtZoom, neigung: VORGABE.neigung, tempo: 1, drehung: 0, halt: 0, foto: null },
+    { anteil: 0.401, zoom: VORGABE.fahrtZoom, neigung: VORGABE.neigung, tempo: 2, drehung: 0, halt: 0, foto: null },
+    { anteil: 0.699, zoom: VORGABE.fahrtZoom, neigung: VORGABE.neigung, tempo: 2, drehung: 0, halt: 0, foto: null },
+    { anteil: 0.701, zoom: VORGABE.fahrtZoom, neigung: VORGABE.neigung, tempo: 1, drehung: 0, halt: 0, foto: null },
     { anteil: 1,     zoom: VORGABE.fahrtZoom, neigung: VORGABE.neigung, tempo: 1 },
   ],
 };
@@ -157,8 +157,8 @@ pruefe('mitten auf der Fahrt kein Schild', mittenInFahrt.schild === null);
   const gedreht = {
     ...MIT_TEMPO,
     kameraPunkte: [
-      { anteil: 0, zoom: 8.5, neigung: 50, tempo: 1, drehung: 0, halt: 0 },
-      { anteil: 1, zoom: 8.5, neigung: 50, tempo: 1, drehung: 1, halt: 0 },
+      { anteil: 0, zoom: 8.5, neigung: 50, tempo: 1, drehung: 0, halt: 0, foto: null },
+      { anteil: 1, zoom: 8.5, neigung: 50, tempo: 1, drehung: 1, halt: 0, foto: null },
     ],
   };
   const zd = baueZeitachse(track, etappen, stationen, gedreht);

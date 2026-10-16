@@ -6,6 +6,7 @@ import {
   useCachedRoute,
   useCalculateRoute,
   useDeleteVideo,
+  useSpots,
   useStages,
   useStartVideo,
   useVideoJob,
@@ -15,6 +16,7 @@ import {
 import { ErrorState, Loading } from '../States';
 import { formatKm } from '../../lib/format';
 import { baueReisedaten } from '../../video/reisedaten';
+import { entfernung } from '../../video/track';
 import {
   baueZeitachse,
   stationenMitHalt,
@@ -37,6 +39,9 @@ import { ladeStil, STILE, type StilArt } from '../../video/stile';
  * Bild fuer Bild weiter. Nur so zeigt die Vorschau wirklich das, was im Video
  * landet.
  */
+
+/** Bis hierhin gilt ein Stellplatz als "an dieser Station". */
+const NAHE_GENUG_M = 3000;
 
 interface Props {
   tripId: string;
@@ -123,6 +128,54 @@ export function TripVideo({ tripId }: Props) {
   }, []);
 
   /**
+   * Die Fotos der Reise, jeweils der naechstgelegenen Station zugeordnet.
+   *
+   * Zugeordnet wird ueber die Entfernung, wie schon bei den Stationsnamen:
+   * Ein Foto haengt am Stellplatz, und der liegt in aller Regel genau dort,
+   * wo das Video ohnehin haelt. Weiter entfernte bleiben unberuecksichtigt --
+   * ein Bild aus einem anderen Landesteil unter einem Ortsschild waere nur
+   * verwirrend.
+   */
+  const spots = useSpots({ tripId, limit: 200 });
+  const fotosJeStation = useMemo(() => {
+    const karte = new Map<number, { id: string; spot: string; caption: string | null }[]>();
+    if (!daten || !spots.data) return karte;
+
+    for (const spot of spots.data.items) {
+      if (spot.photos.length === 0) continue;
+      let beste = NAHE_GENUG_M;
+      let index = -1;
+      daten.stationen.forEach((station, i) => {
+        const d = entfernung([spot.lon, spot.lat], station.ort);
+        if (d < beste) {
+          beste = d;
+          index = i;
+        }
+      });
+      if (index < 0) continue;
+      const liste = karte.get(index) ?? [];
+      for (const foto of spot.photos) {
+        liste.push({ id: foto.id, spot: spot.name, caption: foto.caption });
+      }
+      karte.set(index, liste);
+    }
+    return karte;
+  }, [daten, spots.data]);
+
+  const setzeStationFoto = useCallback(
+    (index: number, fotoId: string | null) => {
+      const anzahl = daten?.stationen.length ?? 0;
+      const liste = Array.from(
+        { length: anzahl },
+        (_, i) => einstellungen.fotoProStation[i] ?? null,
+      );
+      liste[index] = fotoId;
+      aendereEinstellungen({ fotoProStation: liste });
+    },
+    [daten, einstellungen.fotoProStation, aendereEinstellungen],
+  );
+
+  /**
    * Setzt einen Punkt an der Stelle, die die Vorschau gerade zeigt.
    *
    * Der neue Punkt uebernimmt den Wert, den die Kurve dort ohnehin schon hat.
@@ -140,8 +193,9 @@ export function TripVideo({ tripId }: Props) {
       neigung: Math.round(jetzt.neigung),
       tempo: runde(jetzt.tempo, 0.25),
       drehung: runde(jetzt.drehung, 0.1),
-      // Eine Pause legt man ausdruecklich an, nicht beilaeufig.
+      // Pause und Foto legt man ausdruecklich an, nicht beilaeufig.
       halt: 0,
+      foto: null,
     };
     aendereEinstellungen({
       kameraPunkte: [...kameraPunkte, neu].sort((a, b) => a.anteil - b.anteil),
@@ -266,6 +320,24 @@ export function TripVideo({ tripId }: Props) {
     // Kacheln wuerden erneut geladen.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [knoten, stilSpec]);
+
+  /**
+   * Dieselben Bilder wie im Video, nur anders beschafft.
+   *
+   * Im Browser des Nutzers laeuft eine angemeldete Sitzung -- hier genuegt die
+   * Adresse. Der Renderer bekommt stattdessen `data:`-URIs ins Rezept gelegt,
+   * weil er nicht angemeldet ist. Die Szene sieht in beiden Faellen dasselbe.
+   */
+  useEffect(() => {
+    if (!szene) return;
+    const fotos: Record<string, { bild: string; caption: string | null }> = {};
+    for (const liste of fotosJeStation.values()) {
+      for (const foto of liste) {
+        fotos[foto.id] = { bild: `/api/photos/${foto.id}?size=thumb`, caption: foto.caption };
+      }
+    }
+    szene.setzeFotos(fotos);
+  }, [szene, fotosJeStation]);
 
   useEffect(() => {
     szene?.setzeDaten(daten);
@@ -531,10 +603,30 @@ export function TripVideo({ tripId }: Props) {
                           onChange={(e) => setzeStationHalt(i, Number(e.target.value))}
                         />
                         <span className="badge">{wert} s</span>
+                        {(fotosJeStation.get(i)?.length ?? 0) > 0 && (
+                          <select
+                            aria-label={`Foto an ${station.name}`}
+                            value={einstellungen.fotoProStation[i] ?? ''}
+                            onChange={(e) => setzeStationFoto(i, e.target.value || null)}
+                          >
+                            <option value="">ohne Foto</option>
+                            {fotosJeStation.get(i)!.map((foto, n) => (
+                              <option key={foto.id} value={foto.id}>
+                                {foto.caption?.slice(0, 40) || `${foto.spot} – Bild ${n + 1}`}
+                              </option>
+                            ))}
+                          </select>
+                        )}
                       </span>
                     </div>
                   );
                 })}
+                {spots.data && fotosJeStation.size === 0 && (
+                  <p className="muted small">
+                    Fuer ein Foto im Video braucht es einen Stellplatz mit Bild in der Naehe
+                    der Station.
+                  </p>
+                )}
               </div>
             )}
 

@@ -78,6 +78,7 @@ export function VideoRenderPage() {
           szene.zerstoere();
           throw new Error('Die Renderseite wurde waehrenddessen verlassen');
         }
+        szene.setzeFotos(rezept.fotos ?? {});
         szene.setzeDaten(daten);
 
         // Erst hier ersetzen: `zeige` darf nicht auf halb aufgebaute Teile

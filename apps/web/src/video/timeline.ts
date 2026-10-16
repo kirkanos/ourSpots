@@ -76,6 +76,11 @@ export interface Einstellungen {
    * Eintrag, gilt `haltSekunden`. Eine 0 faehrt ohne Halt durch.
    */
   haltProStation: number[];
+  /**
+   * Foto je Station, in der Reihenfolge der Stationen. Null zeigt keines.
+   * Ebenfalls nur Kennungen -- siehe Kamerapunkt.
+   */
+  fotoProStation: (string | null)[];
 }
 
 export const VORGABE: Einstellungen = {
@@ -88,6 +93,7 @@ export const VORGABE: Einstellungen = {
   neigung: 50,
   kameraDrehtMit: false,
   haltProStation: [],
+  fotoProStation: [],
   kameraPunkte: [],
 };
 
@@ -97,7 +103,14 @@ type Abschnitt =
   // station ist null, wenn an dieser Stelle keine Station liegt -- ein Halt,
   // den jemand frei auf die Strecke gesetzt hat. Dann erscheint auch kein
   // Schild.
-  | { art: 'halt'; dauer: number; anteil: number; station: number | null }
+  | {
+      art: 'halt';
+      dauer: number;
+      anteil: number;
+      station: number | null;
+      /** Foto fuer diesen Halt, schon aufgeloest -- siehe sammleHalte. */
+      foto: string | null;
+    }
   | { art: 'abspann'; dauer: number; anteil: number };
 
 export interface Zeitachse {
@@ -175,6 +188,7 @@ export function baueZeitachse(
         dauer: halt.dauer,
         anteil: halt.anteil,
         station: halt.station,
+        foto: halt.foto,
       });
     }
   }
@@ -206,6 +220,8 @@ export interface Zustand {
   gefahreneM: number;
   /** Welches Schild gerade zu sehen ist und wie stark (0..1). */
   schild: { station: number; staerke: number } | null;
+  /** Welches Foto gerade zu sehen ist und wie stark (0..1). */
+  foto: { id: string; staerke: number } | null;
 }
 
 /** Zustand zum Zeitpunkt t (Sekunden seit Videobeginn). */
@@ -289,6 +305,7 @@ export function zustandBei(
     etappenIndex,
     gefahreneM: anteil * track.laengeM,
     schild: schildBei(zeitachse, index, lokal),
+    foto: fotoBei(zeitachse, index, lokal),
   };
 }
 
@@ -351,6 +368,38 @@ function schildBei(
   return null;
 }
 
+/**
+ * Das Foto eines Halts, mit derselben Ein- und Ausblendung wie das Schild.
+ *
+ * Bewusst an denselben Zeitpunkten: Schild und Bild gehoeren zusammen und
+ * sollen nicht nacheinander auftauchen.
+ */
+function fotoBei(
+  zeitachse: Zeitachse,
+  index: number,
+  lokal: number,
+): { id: string; staerke: number } | null {
+  const aktiv = zeitachse.abschnitte[index]!;
+
+  if (aktiv.art === 'halt') {
+    return aktiv.foto ? { id: aktiv.foto, staerke: 1 } : null;
+  }
+
+  if (aktiv.art === 'fahrt') {
+    const naechster = zeitachse.abschnitte[index + 1];
+    if (naechster?.art === 'halt' && naechster.foto && lokal > 0.8) {
+      return { id: naechster.foto, staerke: weich((lokal - 0.8) / 0.2) };
+    }
+  }
+
+  const voriger = zeitachse.abschnitte[index - 1];
+  if (voriger?.art === 'halt' && voriger.foto && lokal < 0.25 && aktiv.art !== 'vorspann') {
+    return { id: voriger.foto, staerke: weich(1 - lokal / 0.25) };
+  }
+
+  return null;
+}
+
 /** Weiche Kurve statt linearem Verlauf, damit Bewegungen nicht ruckartig einsetzen. */
 function weich(x: number): number {
   const k = Math.min(Math.max(x, 0), 1);
@@ -380,6 +429,8 @@ interface Haltestelle {
   dauer: number;
   /** Index der Station, falls hier eine liegt -- sonst null. */
   station: number | null;
+  /** Kennung des Fotos, das hier erscheint -- sonst null. */
+  foto: string | null;
 }
 
 /**
@@ -404,11 +455,19 @@ function sammleHalte(
     // die Regler, die hier auch wirken.
     // Je Station einstellbar; ohne eigenen Wert gilt die Grundeinstellung.
     const dauer = index !== null ? (e.haltProStation[index] ?? e.haltSekunden) : e.haltSekunden;
-    roh.push({ anteil: etappe.bis, dauer, station: index });
+    const foto = index !== null ? (e.fotoProStation[index] ?? null) : null;
+    roh.push({ anteil: etappe.bis, dauer, station: index, foto });
   });
 
   for (const punkt of e.kameraPunkte ?? []) {
-    if (punkt.halt > 0) roh.push({ anteil: punkt.anteil, dauer: punkt.halt, station: null });
+    if (punkt.halt > 0) {
+      roh.push({
+        anteil: punkt.anteil,
+        dauer: punkt.halt,
+        station: null,
+        foto: punkt.foto ?? null,
+      });
+    }
   }
 
   roh.sort((a, b) => a.anteil - b.anteil);
@@ -420,6 +479,7 @@ function sammleHalte(
       // Zusammenlegen: die laengere Pause gewinnt, die Station bleibt erhalten.
       vorher.dauer = Math.max(vorher.dauer, h.dauer);
       vorher.station = vorher.station ?? h.station;
+      vorher.foto = vorher.foto ?? h.foto;
     } else {
       halte.push({ ...h });
     }

@@ -48,6 +48,13 @@ export interface Kamerapunkt {
    * ueberblendet, die Zeit steht schlicht still. Siehe timeline.ts.
    */
   halt: number;
+  /**
+   * Foto, das waehrend der Pause erscheint -- null blendet keines ein.
+   *
+   * Nur eine Kennung, kein Bild: Die Szene schlaegt sie nach. So bleibt diese
+   * Datei frei von allem, was mit Laden und Darstellen zu tun hat.
+   */
+  foto: string | null;
 }
 
 /** Ein vorbereiteter Kanal: Stuetzstellen, Werte und die Steigungen dazu. */

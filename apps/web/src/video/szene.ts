@@ -16,6 +16,7 @@ import * as maplibregl from 'maplibre-gl';
 import type { StyleSpecification } from 'maplibre-gl';
 import { huelle, linieBis } from './track';
 import type { Zustand } from './timeline';
+import type { VideoFoto } from '@ourspots/shared';
 import type { Reisedaten } from './reisedaten';
 import { DREHBAR, markerSvg, type MarkerArt } from './marker';
 import { GELAENDE_HERKUNFT, GELAENDE_KACHELN, UNRUHIGE_EBENEN } from './stile';
@@ -53,6 +54,14 @@ export class Szene {
    */
   private letzterZustand: Zustand | null = null;
   private pumpe: number | null = null;
+  /**
+   * Die Bilder, nach Kennung nachschlagbar.
+   *
+   * Als fertige `data:`-URI, nicht als Adresse: Im Rendercontainer ist die
+   * Seite nicht angemeldet und kann nichts bei der API abrufen.
+   */
+  private fotos: Record<string, VideoFoto> = {};
+  private fotoKasten: HTMLDivElement | null = null;
 
   private constructor(karte: maplibregl.Map, optionen: SzeneOptionen) {
     this.karte = karte;
@@ -86,6 +95,7 @@ export class Szene {
     await new Promise<void>((fertig) => karte.on('load', () => fertig()));
 
     const szene = new Szene(karte, optionen);
+    szene.legeFotokastenAn(behaelter);
     szene.legeRoutenebenenAn();
     szene.richteGelaendeEin();
     szene.duenneBeschriftungAus();
@@ -99,6 +109,23 @@ export class Szene {
   }
 
   // --- Aufbau --------------------------------------------------------------
+
+  /**
+   * Der Rahmen fuer das Foto eines Halts.
+   *
+   * Liegt fest in einer Ecke und nicht als Marker auf der Karte: Ein Bild, das
+   * mit der Karte wandert und sich unter der geneigten Kamera verzerrt, ist
+   * nicht mehr anzusehen. In der Ecke steht es ruhig und verdeckt nichts
+   * Wichtiges.
+   */
+  private legeFotokastenAn(behaelter: HTMLElement): void {
+    const el = document.createElement('div');
+    el.className = 'videofoto';
+    el.innerHTML = `<img class="videofoto__bild" alt=""><span class="videofoto__text"></span>`;
+    el.style.opacity = '0';
+    behaelter.appendChild(el);
+    this.fotoKasten = el;
+  }
 
   /** Route als zwei Linien: die ganze Strecke blass, das Gefahrene kraeftig. */
   private legeRoutenebenenAn(): void {
@@ -268,6 +295,11 @@ export class Szene {
 
   // --- Aenderungen ---------------------------------------------------------
 
+  /** Die Bilder, die in diesem Video vorkommen koennen. */
+  setzeFotos(fotos: Record<string, VideoFoto>): void {
+    this.fotos = fotos;
+  }
+
   setzeDaten(daten: Reisedaten | null): void {
     this.daten = daten;
     this.setzeSchilder();
@@ -398,6 +430,26 @@ export class Szene {
       });
     }
 
+    // Das Foto des aktuellen Halts.
+    if (this.fotoKasten) {
+      const gewaehlt = zustand.foto ? this.fotos[zustand.foto.id] : undefined;
+      const staerke = gewaehlt ? zustand.foto!.staerke : 0;
+      this.fotoKasten.style.opacity = String(staerke);
+      // Die Quelle nur bei Bedarf tauschen: Ein erneutes Setzen desselben
+      // data:-URI laesst den Browser das Bild neu aufbauen, und im Video
+      // waere an der Stelle ein leerer Rahmen zu sehen.
+      const bild = this.fotoKasten.querySelector<HTMLImageElement>('.videofoto__bild');
+      if (bild && gewaehlt && bild.dataset.kennung !== zustand.foto!.id) {
+        bild.dataset.kennung = zustand.foto!.id;
+        bild.src = gewaehlt.bild;
+      }
+      const text = this.fotoKasten.querySelector<HTMLElement>('.videofoto__text');
+      if (text) {
+        text.textContent = gewaehlt?.caption ?? '';
+        text.style.display = gewaehlt?.caption ? '' : 'none';
+      }
+    }
+
     this.schilder.forEach((schild, i) => {
       const sichtbar = zustand.schild?.station === i ? zustand.schild.staerke : 0;
       const inhalt = schild.getElement().querySelector<HTMLElement>('.etappenschild__inhalt');
@@ -478,6 +530,8 @@ export class Szene {
     this.schilder = [];
     this.fahrzeug?.remove();
     this.fahrzeug = null;
+    this.fotoKasten?.remove();
+    this.fotoKasten = null;
     this.karte.remove();
   }
 }

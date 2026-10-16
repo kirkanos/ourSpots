@@ -301,6 +301,8 @@ export const kamerapunktSchema = z.object({
   drehung: z.number().min(0).max(1).default(0),
   /** Pause an dieser Stelle, in Sekunden. 0 fährt durch. */
   halt: z.number().min(0).max(30).default(0),
+  /** Foto, das während der Pause erscheint. Null blendet keines ein. */
+  foto: z.string().nullish().default(null),
 });
 export type Kamerapunkt = z.infer<typeof kamerapunktSchema>;
 
@@ -318,6 +320,11 @@ export const videoEinstellungenSchema = z.object({
    * Eintrag erbt `haltSekunden`, eine 0 fährt ohne Halt durch.
    */
   haltProStation: z.array(z.number().min(0).max(30)).max(200).default([]),
+  /**
+   * Foto je Station, in der Reihenfolge der Stationen. Null zeigt keines.
+   * Bewusst optional – ein Reisevideo soll auch ohne Fotos etwas taugen.
+   */
+  fotoProStation: z.array(z.string().nullable()).max(200).default([]),
   /**
    * Obergrenze mit Grund: Jeder Punkt ist ein Regler in der Oberfläche, und
    * der Renderer wertet die Kurve je Bild aus. Fünfzig sind weit mehr, als

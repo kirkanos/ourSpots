@@ -334,4 +334,19 @@ export interface VideoRezept {
   route: TripRouteDto;
   stages: StageDto[];
   waypoints: WaypointDto[];
+  /**
+   * Die im Video verwendeten Fotos, nach ID nachschlagbar.
+   *
+   * Die Bilder stecken als `data:`-URI mit drin, nicht als Adresse: Die
+   * Renderseite ist nicht angemeldet und darf nichts bei der API abrufen. Nur
+   * die tatsächlich ausgewählten Fotos landen hier, und nur in der kleinen
+   * Größe – sonst würde das Rezept unnötig schwer.
+   */
+  fotos: Record<string, VideoFoto>;
+}
+
+export interface VideoFoto {
+  /** Vollständiger `data:image/webp;base64,…`-URI. */
+  bild: string;
+  caption: string | null;
 }

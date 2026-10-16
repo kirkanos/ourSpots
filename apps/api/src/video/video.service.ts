@@ -13,12 +13,14 @@ import { join } from 'node:path';
 import {
   routeOptionsSchema,
   VIDEO_GROESSEN,
+  type VideoFoto,
   type VideoInput,
   type VideoJobDto,
   type VideoRezept,
 } from '@ourspots/shared';
 import type { VideoJob } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { PhotosService } from '../photos/photos.service';
 import { TripsService } from '../trips/trips.service';
 import { RoutingService } from '../routing/routing.service';
 import { AppConfig, CONFIG } from '../config/app-config';
@@ -49,6 +51,7 @@ export class VideoService implements OnModuleInit {
     private readonly prisma: PrismaService,
     private readonly trips: TripsService,
     private readonly routing: RoutingService,
+    private readonly photos: PhotosService,
     @Inject(CONFIG) private readonly config: AppConfig,
   ) {}
 
@@ -188,7 +191,50 @@ export class VideoService implements OnModuleInit {
       );
     }
 
-    return { einstellungen: eingabe, route, stages, waypoints };
+    return {
+      einstellungen: eingabe,
+      route,
+      stages,
+      waypoints,
+      fotos: await this.sammleFotos(tripId, eingabe),
+    };
+  }
+
+  /**
+   * Laedt die ausgewaehlten Fotos und legt sie als `data:`-URI ins Rezept.
+   *
+   * Nur die wirklich gewaehlten: Ein Rezept mit allen Fotos einer Reise waere
+   * schnell zweistellig megabyteschwer, und gebraucht wird eine Handvoll.
+   *
+   * Gegen die Reise geprueft, nicht bloss nach Kennung geladen -- sonst liesse
+   * sich ueber ein praepariertes Rezept ein fremdes Foto ins eigene Video
+   * holen.
+   */
+  private async sammleFotos(
+    tripId: string,
+    eingabe: VideoInput,
+  ): Promise<Record<string, VideoFoto>> {
+    const gewaehlt = new Set(
+      [
+        ...eingabe.einstellungen.fotoProStation,
+        ...eingabe.einstellungen.kameraPunkte.map((p) => p.foto ?? null),
+      ].filter((id): id is string => typeof id === 'string' && id.length > 0),
+    );
+    if (gewaehlt.size === 0) return {};
+
+    const reihen = await this.prisma.photo.findMany({
+      where: { id: { in: [...gewaehlt] }, spot: { tripId } },
+      select: { id: true, storageKey: true, caption: true },
+    });
+
+    const fotos: Record<string, VideoFoto> = {};
+    for (const reihe of reihen) {
+      const bild = await this.photos.alsDatenUri(reihe.storageKey);
+      // Eine fehlende Datei laesst nur dieses Bild weg, statt den ganzen
+      // Auftrag scheitern zu lassen.
+      if (bild) fotos[reihe.id] = { bild, caption: reihe.caption };
+    }
+    return fotos;
   }
 
   // --- Warteschlange --------------------------------------------------------

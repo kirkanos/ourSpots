@@ -40,10 +40,10 @@ const probe = (punkte: Kamerapunkt[], n = 2001) => {
 // --- Die gesetzten Punkte werden getroffen ------------------------------
 {
   const punkte: Kamerapunkt[] = [
-    { anteil: 0, zoom: 6, neigung: 20, tempo: 1, drehung: 0, halt: 0 },
-    { anteil: 0.35, zoom: 11, neigung: 65, tempo: 1, drehung: 0, halt: 0 },
-    { anteil: 0.7, zoom: 9, neigung: 40, tempo: 1, drehung: 0, halt: 0 },
-    { anteil: 1, zoom: 12, neigung: 70, tempo: 1, drehung: 0, halt: 0 },
+    { anteil: 0, zoom: 6, neigung: 20, tempo: 1, drehung: 0, halt: 0, foto: null },
+    { anteil: 0.35, zoom: 11, neigung: 65, tempo: 1, drehung: 0, halt: 0, foto: null },
+    { anteil: 0.7, zoom: 9, neigung: 40, tempo: 1, drehung: 0, halt: 0, foto: null },
+    { anteil: 1, zoom: 12, neigung: 70, tempo: 1, drehung: 0, halt: 0, foto: null },
   ];
   const { kurve } = probe(punkte);
   const treffer = punkte.every((p) => {
@@ -57,9 +57,9 @@ const probe = (punkte: Kamerapunkt[], n = 2001) => {
 {
   // Genau der Fall, an dem Catmull-Rom scheitert: ein Hochpunkt in der Mitte.
   const punkte: Kamerapunkt[] = [
-    { anteil: 0, zoom: 8, neigung: 30, tempo: 1, drehung: 0, halt: 0 },
-    { anteil: 0.5, zoom: 12, neigung: 70, tempo: 1, drehung: 0, halt: 0 },
-    { anteil: 1, zoom: 8, neigung: 30, tempo: 1, drehung: 0, halt: 0 },
+    { anteil: 0, zoom: 8, neigung: 30, tempo: 1, drehung: 0, halt: 0, foto: null },
+    { anteil: 0.5, zoom: 12, neigung: 70, tempo: 1, drehung: 0, halt: 0, foto: null },
+    { anteil: 1, zoom: 8, neigung: 30, tempo: 1, drehung: 0, halt: 0, foto: null },
   ];
   const { werte } = probe(punkte);
   const maxZoom = Math.max(...werte.map((w) => w.zoom));
@@ -79,10 +79,10 @@ const probe = (punkte: Kamerapunkt[], n = 2001) => {
 // --- Monoton, wo die Punkte monoton sind --------------------------------
 {
   const punkte: Kamerapunkt[] = [
-    { anteil: 0, zoom: 6, neigung: 10, tempo: 1, drehung: 0, halt: 0 },
-    { anteil: 0.3, zoom: 7, neigung: 25, tempo: 1, drehung: 0, halt: 0 },
-    { anteil: 0.6, zoom: 10, neigung: 45, tempo: 1, drehung: 0, halt: 0 },
-    { anteil: 1, zoom: 13, neigung: 75, tempo: 1, drehung: 0, halt: 0 },
+    { anteil: 0, zoom: 6, neigung: 10, tempo: 1, drehung: 0, halt: 0, foto: null },
+    { anteil: 0.3, zoom: 7, neigung: 25, tempo: 1, drehung: 0, halt: 0, foto: null },
+    { anteil: 0.6, zoom: 10, neigung: 45, tempo: 1, drehung: 0, halt: 0, foto: null },
+    { anteil: 1, zoom: 13, neigung: 75, tempo: 1, drehung: 0, halt: 0, foto: null },
   ];
   const { werte } = probe(punkte);
   let monoton = true;
@@ -95,9 +95,9 @@ const probe = (punkte: Kamerapunkt[], n = 2001) => {
 // --- Keine Spruenge -----------------------------------------------------
 {
   const punkte: Kamerapunkt[] = [
-    { anteil: 0.1, zoom: 5, neigung: 0, tempo: 1, drehung: 0, halt: 0 },
-    { anteil: 0.12, zoom: 14, neigung: 80, tempo: 1, drehung: 0, halt: 0 },
-    { anteil: 0.9, zoom: 6, neigung: 10, tempo: 1, drehung: 0, halt: 0 },
+    { anteil: 0.1, zoom: 5, neigung: 0, tempo: 1, drehung: 0, halt: 0, foto: null },
+    { anteil: 0.12, zoom: 14, neigung: 80, tempo: 1, drehung: 0, halt: 0, foto: null },
+    { anteil: 0.9, zoom: 6, neigung: 10, tempo: 1, drehung: 0, halt: 0, foto: null },
   ];
   const { werte } = probe(punkte, 20001);
   let groesster = 0;
@@ -116,8 +116,8 @@ const probe = (punkte: Kamerapunkt[], n = 2001) => {
 // --- Vor dem ersten und nach dem letzten Punkt wird gehalten ------------
 {
   const punkte: Kamerapunkt[] = [
-    { anteil: 0.4, zoom: 7, neigung: 30, tempo: 1, drehung: 0, halt: 0 },
-    { anteil: 0.6, zoom: 11, neigung: 60, tempo: 1, drehung: 0, halt: 0 },
+    { anteil: 0.4, zoom: 7, neigung: 30, tempo: 1, drehung: 0, halt: 0, foto: null },
+    { anteil: 0.6, zoom: 11, neigung: 60, tempo: 1, drehung: 0, halt: 0, foto: null },
   ];
   const { kurve } = probe(punkte);
   pruefe(
@@ -134,16 +134,16 @@ const probe = (punkte: Kamerapunkt[], n = 2001) => {
 {
   const a = baueKamerakurve(
     [
-      { anteil: 0.8, zoom: 12, neigung: 70, tempo: 1, drehung: 0, halt: 0 },
-      { anteil: 0.2, zoom: 6, neigung: 20, tempo: 1, drehung: 0, halt: 0 },
+      { anteil: 0.8, zoom: 12, neigung: 70, tempo: 1, drehung: 0, halt: 0, foto: null },
+      { anteil: 0.2, zoom: 6, neigung: 20, tempo: 1, drehung: 0, halt: 0, foto: null },
     ],
     8.5,
     50,
   );
   const b = baueKamerakurve(
     [
-      { anteil: 0.2, zoom: 6, neigung: 20, tempo: 1, drehung: 0, halt: 0 },
-      { anteil: 0.8, zoom: 12, neigung: 70, tempo: 1, drehung: 0, halt: 0 },
+      { anteil: 0.2, zoom: 6, neigung: 20, tempo: 1, drehung: 0, halt: 0, foto: null },
+      { anteil: 0.8, zoom: 12, neigung: 70, tempo: 1, drehung: 0, halt: 0, foto: null },
     ],
     8.5,
     50,
@@ -156,8 +156,8 @@ const probe = (punkte: Kamerapunkt[], n = 2001) => {
 
   const dublette = baueKamerakurve(
     [
-      { anteil: 0.5, zoom: 6, neigung: 20, tempo: 1, drehung: 0, halt: 0 },
-      { anteil: 0.5, zoom: 10, neigung: 60, tempo: 1, drehung: 0, halt: 0 },
+      { anteil: 0.5, zoom: 6, neigung: 20, tempo: 1, drehung: 0, halt: 0, foto: null },
+      { anteil: 0.5, zoom: 10, neigung: 60, tempo: 1, drehung: 0, halt: 0, foto: null },
     ],
     8.5,
     50,
@@ -190,8 +190,8 @@ const probe = (punkte: Kamerapunkt[], n = 2001) => {
   const doppelt = baueTempoprofil(
     baueKamerakurve(
       [
-        { anteil: 0, zoom: 8.5, neigung: 50, tempo: 2, drehung: 0, halt: 0 },
-        { anteil: 1, zoom: 8.5, neigung: 50, tempo: 2, drehung: 0, halt: 0 },
+        { anteil: 0, zoom: 8.5, neigung: 50, tempo: 2, drehung: 0, halt: 0, foto: null },
+        { anteil: 1, zoom: 8.5, neigung: 50, tempo: 2, drehung: 0, halt: 0, foto: null },
       ],
       8.5,
       50,
@@ -209,10 +209,10 @@ const probe = (punkte: Kamerapunkt[], n = 2001) => {
   const gemischt = baueTempoprofil(
     baueKamerakurve(
       [
-        { anteil: 0, zoom: 8.5, neigung: 50, tempo: 0.5, drehung: 0, halt: 0 },
-        { anteil: 0.499, zoom: 8.5, neigung: 50, tempo: 0.5, drehung: 0, halt: 0 },
-        { anteil: 0.501, zoom: 8.5, neigung: 50, tempo: 2, drehung: 0, halt: 0 },
-        { anteil: 1, zoom: 8.5, neigung: 50, tempo: 2, drehung: 0, halt: 0 },
+        { anteil: 0, zoom: 8.5, neigung: 50, tempo: 0.5, drehung: 0, halt: 0, foto: null },
+        { anteil: 0.499, zoom: 8.5, neigung: 50, tempo: 0.5, drehung: 0, halt: 0, foto: null },
+        { anteil: 0.501, zoom: 8.5, neigung: 50, tempo: 2, drehung: 0, halt: 0, foto: null },
+        { anteil: 1, zoom: 8.5, neigung: 50, tempo: 2, drehung: 0, halt: 0, foto: null },
       ],
       8.5,
       50,
@@ -232,9 +232,9 @@ const probe = (punkte: Kamerapunkt[], n = 2001) => {
   const profil = baueTempoprofil(
     baueKamerakurve(
       [
-        { anteil: 0.1, zoom: 8.5, neigung: 50, tempo: 0.25, drehung: 0, halt: 0 },
-        { anteil: 0.45, zoom: 8.5, neigung: 50, tempo: 4, drehung: 0, halt: 0 },
-        { anteil: 0.9, zoom: 8.5, neigung: 50, tempo: 1, drehung: 0, halt: 0 },
+        { anteil: 0.1, zoom: 8.5, neigung: 50, tempo: 0.25, drehung: 0, halt: 0, foto: null },
+        { anteil: 0.45, zoom: 8.5, neigung: 50, tempo: 4, drehung: 0, halt: 0, foto: null },
+        { anteil: 0.9, zoom: 8.5, neigung: 50, tempo: 1, drehung: 0, halt: 0, foto: null },
       ],
       8.5,
       50,

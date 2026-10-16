@@ -7,7 +7,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { createReadStream, type ReadStream } from 'node:fs';
-import { mkdir, stat, unlink } from 'node:fs/promises';
+import { mkdir, readFile, stat, unlink } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import exifr from 'exifr';
 import sharp from 'sharp';
@@ -146,6 +146,21 @@ export class PhotosService {
     const info = await stat(path).catch(() => null);
     if (!info) throw new NotFoundException('Bilddatei nicht gefunden');
     return { stream: createReadStream(path), bytes: info.size };
+  }
+
+  /**
+   * Ein Foto als `data:`-URI, zum Mitgeben in ein Rezept fuer den Renderer.
+   *
+   * Der Renderer ist nicht angemeldet und kann keine Bildadresse abrufen --
+   * das Bild muss also mitreisen. Bewusst nur in der kleinen Groesse: Im
+   * Video steht es als Vorschaubild in der Ecke, und base64 traegt ohnehin ein
+   * Drittel Ballast mit.
+   */
+  async alsDatenUri(storageKey: string, size: PhotoSize = 'thumb'): Promise<string | null> {
+    const path = this.pathFor(storageKey, size);
+    const daten = await readFile(path).catch(() => null);
+    if (!daten) return null;
+    return `data:image/webp;base64,${daten.toString('base64')}`;
   }
 
   private pathFor(storageKey: string, size: PhotoSize): string {
