@@ -392,3 +392,16 @@ export interface VideoFoto {
   bild: string;
   caption: string | null;
 }
+
+/** Eine öffentliche Reise in der Übersicht für nicht angemeldete Besucher. */
+export interface PublicTripListeDto {
+  id: string;
+  title: string;
+  description: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  ownerName: string;
+  spotCount: number;
+  /** Gesamtstrecke in Metern, sofern eine Route berechnet wurde. */
+  distanceM: number | null;
+}

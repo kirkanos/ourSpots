@@ -11,6 +11,8 @@ import { TripDetailPage } from './pages/TripDetailPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { PublicTripPage } from './pages/PublicTripPage';
 import { VideoRenderPage } from './pages/VideoRenderPage';
+import { EntdeckenPage } from './pages/EntdeckenPage';
+import { EntdeckenTripPage } from './pages/EntdeckenTripPage';
 
 export function App() {
   return (
@@ -20,6 +22,11 @@ export function App() {
       {/* Buehne fuer den Renderer im Container. Zeigt ohne injiziertes Rezept
           nichts an und ruft die API nie auf – deshalb ohne Anmeldung. */}
       <Route path="/video-rendern" element={<VideoRenderPage />} />
+      {/* Oeffentlich freigegebene Reisen – die Eingangstuer fuer alle, die
+          nicht angemeldet sind. Privat bleibt trotzdem die Voreinstellung:
+          Hier erscheint nur, was jemand ausdruecklich freigegeben hat. */}
+      <Route path="/entdecken" element={<EntdeckenPage />} />
+      <Route path="/entdecken/:id" element={<EntdeckenTripPage />} />
       <Route path="*" element={<AuthenticatedApp />} />
     </Routes>
   );

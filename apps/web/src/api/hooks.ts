@@ -31,6 +31,10 @@ import type {
   WaypointInput,
   VideoInput,
   VideoJobDto,
+  PublicTripDto,
+  PublicTripListeDto,
+  AdminUserDto,
+  AdminRolleInput,
 } from '@ourspots/shared';
 import { api, buildQuery } from './client';
 import { isOfflineError } from '../offline/db';
@@ -605,5 +609,67 @@ export function useDeleteVideo(tripId: string) {
   return useMutation({
     mutationFn: () => api<void>(`/trips/${tripId}/video`, { method: 'DELETE' }),
     onSuccess: () => qc.setQueryData(['video', tripId], null),
+  });
+}
+
+// --- Oeffentliche Ansicht --------------------------------------------------
+
+/** Reisen, die ohne Anmeldung sichtbar sind. */
+export function usePublicTrips(): UseQueryResult<PublicTripListeDto[]> {
+  return useQuery({
+    queryKey: ['entdecken'],
+    queryFn: () => api<PublicTripListeDto[]>('/entdecken/trips'),
+  });
+}
+
+export function usePublicTrip(tripId: string): UseQueryResult<PublicTripDto> {
+  return useQuery({
+    queryKey: ['entdecken', tripId],
+    queryFn: () => api<PublicTripDto>(`/entdecken/trips/${tripId}`),
+  });
+}
+
+// --- Verwaltung ------------------------------------------------------------
+
+/**
+ * Ob die Installation noch eingerichtet werden muss.
+ *
+ * Bewusst auch fuer Nicht-Admins abrufbar: Zu diesem Zeitpunkt gibt es ja noch
+ * keinen. Das Token selbst steht ausschliesslich im Log des Servers.
+ */
+export function useEinrichtung(): UseQueryResult<{ offen: boolean }> {
+  return useQuery({
+    queryKey: ['einrichtung'],
+    queryFn: () => api<{ offen: boolean }>('/admin/einrichtung'),
+    staleTime: 60_000,
+  });
+}
+
+export function useBeanspruchen() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (token: string) =>
+      api<void>('/admin/einrichtung', { method: 'POST', body: { token } }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['me'] });
+      void qc.invalidateQueries({ queryKey: ['einrichtung'] });
+    },
+  });
+}
+
+export function useAdminUsers(enabled: boolean): UseQueryResult<AdminUserDto[]> {
+  return useQuery({
+    queryKey: ['admin-users'],
+    queryFn: () => api<AdminUserDto[]>('/admin/users'),
+    enabled,
+  });
+}
+
+export function useSetzeRolle() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: AdminRolleInput) =>
+      api<AdminUserDto[]>('/admin/users', { method: 'POST', body: input }),
+    onSuccess: (users) => qc.setQueryData(['admin-users'], users),
   });
 }

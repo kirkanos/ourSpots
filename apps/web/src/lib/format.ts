@@ -8,7 +8,18 @@ const moneyFormat = new Intl.NumberFormat('de-DE', { style: 'currency', currency
 
 export function formatDate(iso: string | null | undefined): string {
   if (!iso) return '–';
-  return dateFormat.format(new Date(`${iso}T12:00:00`));
+
+  // Ein reines Datum (2026-10-16) bekommt die Mittagszeit, sonst rutscht es je
+  // nach Zeitzone auf den Vortag. Ein vollstaendiger Zeitstempel traegt seine
+  // Zone schon mit und wird direkt gelesen -- frueher wurde auch daran
+  // "T12:00:00" angehaengt, was eine ungueltige Zeit ergab.
+  const datum = iso.includes('T') ? new Date(iso) : new Date(`${iso}T12:00:00`);
+
+  // Ohne diese Pruefung wirft Intl bei ungueltiger Eingabe, und weil
+  // Formatierung ueberall mitten im Aufbau passiert, nimmt das die ganze
+  // Seite mit statt nur ein Datumsfeld.
+  if (Number.isNaN(datum.getTime())) return '–';
+  return dateFormat.format(datum);
 }
 
 export function formatDateRange(from: string | null, to: string | null): string {

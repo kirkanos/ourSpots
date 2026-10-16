@@ -18,6 +18,7 @@ import {
   useVehicles,
 } from '../api/hooks';
 import { ErrorState, Loading } from '../components/States';
+import { Benutzerverwaltung } from '../components/Benutzerverwaltung';
 import { IconPlus, IconTrash } from '../components/Icons';
 import { LocationField } from '../components/LocationField';
 import { OfflineSettings } from '../components/OfflineSettings';
@@ -27,6 +28,7 @@ export function SettingsPage() {
   return (
     <div className="page stack">
       <h1>Einstellungen</h1>
+      <Benutzerverwaltung />
       <HomeSection />
       <VehicleSection />
       <ImportSection />

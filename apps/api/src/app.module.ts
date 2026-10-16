@@ -15,6 +15,7 @@ import { TransferModule } from './transfer/transfer.module';
 import { VehiclesModule } from './vehicles/vehicles.module';
 import { VideoModule } from './video/video.module';
 import { AdminModule } from './admin/admin.module';
+import { PublicModule } from './public/public.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -33,6 +34,7 @@ import { HealthController } from './health.controller';
     VehiclesModule,
     VideoModule,
     AdminModule,
+    PublicModule,
   ],
   controllers: [HealthController],
   providers: [

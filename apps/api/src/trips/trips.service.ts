@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import type { Prisma, Trip } from '../generated/prisma/client';
 import type {
   StageDto,
@@ -137,6 +142,7 @@ export class TripsService {
         endDate: toDateOnly(input.endDate),
         status: input.status,
         vehicleId: input.vehicleId ?? null,
+        isPublic: input.isPublic,
       },
     });
     return this.toDto(trip, 'owner', 0);
@@ -144,6 +150,21 @@ export class TripsService {
 
   async update(tripId: string, userId: string, input: TripInput): Promise<TripDto> {
     const role = await this.requireRole(tripId, userId, 'editor');
+
+    // Oeffentlich schalten darf nur, wem die Reise gehoert -- oder ein Admin,
+    // der hier ohnehin als Eigentuemer zaehlt. Ein Editor darf alles andere
+    // aendern; sein Formular traegt den aktuellen Wert mit, deshalb ist nur
+    // eine echte Aenderung ein Fehler und nicht schon das Mitsenden.
+    const vorher = await this.prisma.trip.findUniqueOrThrow({
+      where: { id: tripId },
+      select: { isPublic: true },
+    });
+    if (input.isPublic !== vorher.isPublic && role !== 'owner') {
+      throw new ForbiddenException(
+        'Ob eine Reise öffentlich ist, entscheidet nur die Person, der sie gehört',
+      );
+    }
+
     const trip = await this.prisma.trip.update({
       where: { id: tripId },
       data: {
@@ -153,6 +174,7 @@ export class TripsService {
         endDate: toDateOnly(input.endDate),
         status: input.status,
         vehicleId: input.vehicleId ?? null,
+        isPublic: input.isPublic,
       },
       include: { _count: { select: { spots: true } } },
     });

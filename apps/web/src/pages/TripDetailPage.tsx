@@ -153,6 +153,7 @@ function TripSettings({ tripId, trip }: { tripId: string; trip: TripDto }) {
     endDate: trip.endDate,
     status: trip.status,
     vehicleId: trip.vehicleId,
+    isPublic: trip.isPublic,
   });
   const [issue, setIssue] = useState<string | null>(null);
 
@@ -249,6 +250,23 @@ function TripSettings({ tripId, trip }: { tripId: string; trip: TripDto }) {
           onChange={(e) => setForm({ ...form, description: e.target.value || null })}
         />
       </div>
+      {trip.myRole === 'owner' && (
+        <div className="field">
+          <button
+            type="button"
+            className="chip"
+            aria-pressed={form.isPublic}
+            onClick={() => setForm({ ...form, isPublic: !form.isPublic })}
+          >
+            Öffentlich sichtbar
+          </button>
+          <span className="field__hint">
+            {form.isPublic
+              ? 'Diese Reise erscheint unter „Entdecken“ und ist ohne Anmeldung zu sehen – mit Route, Stationen und Fotos, aber ohne Notizen.'
+              : 'Nur du und die Mitreisenden sehen diese Reise.'}
+          </span>
+        </div>
+      )}
       {issue && <div className="field__error">{issue}</div>}
       {save.error && <ErrorState error={save.error} />}
       <div className="row">

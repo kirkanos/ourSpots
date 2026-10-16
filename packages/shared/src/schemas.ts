@@ -70,6 +70,11 @@ export const tripInputSchema = z
     endDate: isoDate.nullish(),
     status: z.enum(TRIP_STATUSES).default('planned'),
     vehicleId: uuid.nullish(),
+    /**
+     * Öffentlich sichtbar, auch ohne Anmeldung. Setzen darf das nur, wer die
+     * Reise besitzt, oder ein Administrator.
+     */
+    isPublic: z.boolean().default(false),
   })
   .refine(
     (t) => !t.startDate || !t.endDate || t.startDate <= t.endDate,

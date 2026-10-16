@@ -11,8 +11,11 @@ import { IconLogo } from '../components/Icons';
 import { formatDate, formatDateRange, formatMoney } from '../lib/format';
 
 /**
- * Öffentliche Ansicht einer geteilten Reise – ohne Anmeldung, nur lesend.
- * Private Notizen filtert bereits der Server heraus.
+ * Öffentliche Ansicht einer geteilten Reise – über einen Teilen-Link.
+ *
+ * Holt die Daten und überlässt die Darstellung `OeffentlicheReise`. Dieselbe
+ * Darstellung bedient auch den Bereich „Entdecken“, der über die Kennung der
+ * Reise geht statt über ein Token – deshalb ist beides getrennt.
  */
 export function PublicTripPage() {
   const { token } = useParams();
@@ -41,6 +44,35 @@ export function PublicTripPage() {
 
   if (!trip) return <Loading label="Reise wird geladen …" />;
 
+  return (
+    <OeffentlicheReise
+      trip={trip}
+      hinweis="geteilte Ansicht"
+      herkunft={`geteilt von ${trip.ownerName}`}
+      fotoUrl={(id, groesse) => `/api/public/${token}/photos/${id}?size=${groesse}`}
+    />
+  );
+}
+
+/**
+ * Eine öffentliche Reise darstellen – Karte, Stationen, Stellplätze, Fotos.
+ *
+ * Woher die Daten kommen und unter welcher Adresse die Fotos liegen, gibt der
+ * Aufrufer vor: beim Teilen-Link über das Token, beim Bereich „Entdecken“
+ * über die Kennung der Reise. Notizen sind in beiden Fällen schon serverseitig
+ * entfernt.
+ */
+export function OeffentlicheReise({
+  trip,
+  hinweis,
+  herkunft,
+  fotoUrl,
+}: {
+  trip: PublicTripDto;
+  hinweis: string;
+  herkunft: string;
+  fotoUrl: (photoId: string, groesse: 'thumb' | 'original') => string;
+}) {
   const points: [number, number][] = [
     ...trip.waypoints.map((wp) => [wp.lat, wp.lon] as [number, number]),
     ...trip.spots.map((spot) => [spot.lat, spot.lon] as [number, number]),
@@ -55,14 +87,14 @@ export function PublicTripPage() {
           OurSpots
         </span>
         <div className="app__spacer" />
-        <span className="badge">geteilte Ansicht</span>
+        <span className="badge">{hinweis}</span>
       </header>
 
       <main className="page stack">
         <div>
           <h1 style={{ marginBottom: '0.25rem' }}>{trip.title}</h1>
           <div className="small muted">
-            {formatDateRange(trip.startDate, trip.endDate)} · geteilt von {trip.ownerName}
+            {formatDateRange(trip.startDate, trip.endDate)} · {herkunft}
           </div>
         </div>
 
@@ -128,12 +160,12 @@ export function PublicTripPage() {
                   {spot.photoIds.map((photoId) => (
                     <a
                       key={photoId}
-                      href={`/api/public/${token}/photos/${photoId}?size=original`}
+                      href={fotoUrl(photoId, 'original')}
                       target="_blank"
                       rel="noreferrer"
                     >
                       <img
-                        src={`/api/public/${token}/photos/${photoId}?size=thumb`}
+                        src={fotoUrl(photoId, 'thumb')}
                         alt={`Foto von ${spot.name}`}
                         loading="lazy"
                       />
