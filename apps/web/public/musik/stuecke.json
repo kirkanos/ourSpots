@@ -1,1 +1,20 @@
-[]
+[
+  {
+    "datei": "contemplation.mp3",
+    "titel": "Contemplation",
+    "urheber": "Joth",
+    "lizenz": "CC0 1.0"
+  },
+  {
+    "datei": "celtic.mp3",
+    "titel": "Celtic Loop",
+    "urheber": "stereoscopic",
+    "lizenz": "CC0 1.0"
+  },
+  {
+    "datei": "synthwave.mp3",
+    "titel": "Calm Ambient",
+    "urheber": "The Cynic Project",
+    "lizenz": "CC0 1.0"
+  }
+]

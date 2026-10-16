@@ -1,20 +1,35 @@
 # Musik für Reisevideos
 
-Dieser Ordner ist **absichtlich leer**. Hier liegen die Stücke, die in der
-Oberfläche zur Auswahl stehen – ausgeliefert werden sie vom Webcontainer, der
-Renderer lädt sie von dort.
+Hier liegen die Stücke, die in der Oberfläche zur Auswahl stehen – ausgeliefert
+werden sie vom Webcontainer, der Renderer lädt sie von dort.
 
-## Warum nichts mitgeliefert wird
+| Datei | Titel | Urheber | Lizenz | Quelle |
+|---|---|---|---|---|
+| `contemplation.mp3` | Contemplation | Joth | CC0 1.0 | [OpenGameArt](https://opengameart.org/content/contemplation-0) |
+| `celtic.mp3` | Celtic Loop | stereoscopic | CC0 1.0 | [OpenGameArt](https://opengameart.org/content/celtic-loop) |
+| `synthwave.mp3` | Calm Ambient | The Cynic Project | CC0 1.0 | [OpenGameArt](https://opengameart.org/content/calm-ambient-1-synthwave-4k) |
+
+Alle drei auf 128 kbit/s neu kodiert – unter einem Video ist das reichlich, und
+die Originale brachten zusammen 11 MB statt 5 mit. CC0 erlaubt die Bearbeitung
+ausdrücklich.
+
+CC0 verlangt keine Namensnennung. Der Urheber von `synthwave.mp3` bittet
+dennoch um einen Hinweis auf *The Cynic Project / cynicmusic.com /
+pixelsphere.org* – wer das Stück in einem veröffentlichten Video verwendet,
+tut ihm damit einen Gefallen.
+
+## Worauf es bei der Auswahl ankam
 
 Eine Audiodatei in einem öffentlichen Repository ist eine Weitergabe. Dafür
 braucht es eine Lizenz, die das ausdrücklich erlaubt – in der Praxis **CC0**
 oder Gemeinfreiheit. „Royalty free", „free download" oder „kostenlos" reichen
 nicht: Sie regeln die Nutzung, nicht die Weitergabe.
 
-Beim Zusammenstellen einer Auswahl bin ich auf genau diese Unschärfe gestoßen.
-Ein vielversprechendes Album stand im Free Music Archive unter CC0 1.0, während
-die Seite des Urhebers einen gewöhnlichen Copyright-Vermerk ohne Lizenzangabe
-trug. Dieser Widerspruch ließ sich nicht auflösen, also wurde nichts übernommen.
+Ein naheliegender Kandidat fiel genau daran durch: Ein Album stand im Free
+Music Archive unter CC0 1.0, während die Seite des Urhebers einen gewöhnlichen
+Copyright-Vermerk ohne Lizenzangabe trug. Dieser Widerspruch ließ sich nicht
+auflösen, also wurde es nicht übernommen. Bei OpenGameArt hängt die Lizenz
+dagegen an der einzelnen Einreichung und ist dort nachzulesen.
 
 ## Ein Stück hinzufügen
 
