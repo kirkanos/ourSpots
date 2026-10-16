@@ -75,6 +75,29 @@ export class VideoController {
     return this.video.remove(tripId, user.id);
   }
 
+  /**
+   * Die hochgeladene Musik, damit die Vorschau sie mitspielen kann.
+   *
+   * Muss vor 'trips/:id/video/musik' nicht sortiert werden -- die Pfade sind
+   * verschieden lang und kollidieren nicht.
+   */
+  @Get('trips/:id/video/musik/datei')
+  async musikDatei(
+    @Param('id') tripId: string,
+    @CurrentUser() user: User,
+    @Res() res: Response,
+  ): Promise<void> {
+    const { stream, bytes, typ } = await this.video.oeffneMusik(tripId, user.id);
+    res.set({
+      'Content-Type': typ,
+      'Content-Length': String(bytes),
+      // Kein Caching: Eine neu hochgeladene Datei liegt unter derselben
+      // Adresse, und die Vorschau spielte sonst weiter die alte.
+      'Cache-Control': 'private, no-store',
+    });
+    stream.pipe(res);
+  }
+
   @Get('trips/:id/video/datei')
   async datei(
     @Param('id') tripId: string,

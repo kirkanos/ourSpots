@@ -184,6 +184,32 @@ export class VideoService implements OnModuleInit {
     return { stream: createReadStream(pfad), bytes: info.size };
   }
 
+  /**
+   * Die hochgeladene Musik einer Reise zum Anhoeren.
+   *
+   * Die Vorschau spielt sie mit, damit man vor einem Lauf von ein bis drei
+   * Stunden hoert, ob Stueck und Lautstaerke zum Video passen. Lesen darf das
+   * jeder, der die Reise sehen darf -- es ist dieselbe Datei, die er im
+   * fertigen Video ohnehin hoert.
+   */
+  async oeffneMusik(
+    tripId: string,
+    userId: string,
+  ): Promise<{ stream: ReadStream; bytes: number; typ: string }> {
+    await this.trips.requireRole(tripId, userId, 'viewer');
+    const datei = await this.eigeneMusikdatei(tripId);
+    if (!datei) throw new NotFoundException('Für diese Reise ist keine Musik hinterlegt');
+
+    const pfad = join(this.config.VIDEO_DIR, 'musik', datei);
+    const info = await stat(pfad).catch(() => null);
+    if (!info) throw new NotFoundException('Die Musikdatei fehlt');
+    return {
+      stream: createReadStream(pfad),
+      bytes: info.size,
+      typ: datei.endsWith('.m4a') ? 'audio/mp4' : 'audio/mpeg',
+    };
+  }
+
   // --- Rezept ---------------------------------------------------------------
 
   /**

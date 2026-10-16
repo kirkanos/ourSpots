@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import type { StyleSpecification } from 'maplibre-gl';
 import { VIDEO_GROESSEN, videoAufloesung, type VideoInput } from '@ourspots/shared';
@@ -450,6 +450,64 @@ export function TripVideo({ tripId }: Props) {
     return () => cancelAnimationFrame(id);
   }, [laeuft, zeitachse]);
 
+  // --- Musik in der Vorschau ------------------------------------------------
+
+  const musikRef = useRef<HTMLAudioElement | null>(null);
+
+  /** Adresse des gewaehlten Stuecks -- dieselbe Quelle, die auch der Renderer holt. */
+  const musikUrl = useMemo(() => {
+    if (!musik) return null;
+    if (musik === 'eigene') return `/api/trips/${tripId}/video/musik/datei`;
+    if (musik.startsWith('auswahl:')) return `/musik/${musik.slice('auswahl:'.length)}`;
+    return null;
+  }, [musik, tripId]);
+
+  /**
+   * Startet und stoppt die Musik mit der Vorschau.
+   *
+   * Der Browser verweigert die Wiedergabe, solange der Nutzer nichts angeklickt
+   * hat. Hier ist das nie ein Problem -- gestartet wird ueber "Abspielen" --,
+   * aber der abgewiesene Versuch darf die Vorschau nicht mitreissen.
+   */
+  useEffect(() => {
+    const el = musikRef.current;
+    if (!el || !musikUrl) return;
+    if (laeuft) void el.play().catch(() => undefined);
+    else el.pause();
+  }, [laeuft, musikUrl]);
+
+  /**
+   * Haelt die Musik auf der Zeit der Vorschau.
+   *
+   * Nur bei groesseren Abweichungen nachgestellt: Beim Springen ueber den
+   * Regler, nicht in jedem Bild. Der Rest laeuft von selbst mit, und ein
+   * staendig gesetztes currentTime wuerde die Wiedergabe zerhacken.
+   *
+   * Modulo der Stuecklaenge, weil der Renderer die Musik in Schleife legt
+   * (ffmpeg -stream_loop -1) -- und das Element hier ebenso.
+   */
+  useEffect(() => {
+    const el = musikRef.current;
+    if (!el || !musikUrl || el.readyState === 0) return;
+    const laenge = el.duration;
+    const soll = Number.isFinite(laenge) && laenge > 0 ? zeit % laenge : zeit;
+    if (Math.abs(el.currentTime - soll) > 0.4) el.currentTime = soll;
+  }, [zeit, musikUrl]);
+
+  /**
+   * Lautstaerke, samt der Ausblendung am Schluss.
+   *
+   * Dieselben zwei Sekunden wie im fertigen Video -- sonst klaenge die
+   * Vorschau am Ende anders als das Ergebnis.
+   */
+  useEffect(() => {
+    const el = musikRef.current;
+    if (!el || !zeitachse) return;
+    const rest = zeitachse.gesamtdauer - zeit;
+    const faktor = rest < 2 ? Math.max(0, rest / 2) : 1;
+    el.volume = Math.min(1, Math.max(0, musikLautstaerke * faktor));
+  }, [musikLautstaerke, zeit, zeitachse]);
+
   // --- Oberflaeche ---------------------------------------------------------
 
   return (
@@ -482,7 +540,17 @@ export function TripVideo({ tripId }: Props) {
         {zeitachse && (
           <>
             <div className="row">
-              <button type="button" className="btn" onClick={() => setLaeuft((v) => !v)}>
+              <button
+                type="button"
+                className="btn"
+                onClick={() => {
+                  // Am Ende heisst der Knopf "Von vorn" -- dann muss die Zeit
+                  // auch zurueck. Ohne das sprang die Schleife sofort wieder
+                  // auf Pause, weil sie schon am Ende stand.
+                  if (!laeuft && zeit >= zeitachse.gesamtdauer) setZeit(0);
+                  setLaeuft((v) => !v);
+                }}
+              >
                 {laeuft ? 'Pause' : zeit >= zeitachse.gesamtdauer ? 'Von vorn' : 'Abspielen'}
               </button>
               <input
@@ -500,6 +568,13 @@ export function TripVideo({ tripId }: Props) {
               <span className="badge">
                 {zeit.toFixed(1)} / {zeitachse.gesamtdauer.toFixed(1)} s
               </span>
+              {/*
+                Die Musik der Vorschau. Ohne Bedienelemente: Gestartet,
+                gestoppt und gespult wird sie ueber die Vorschau selbst.
+              */}
+              {musikUrl && (
+                <audio ref={musikRef} src={musikUrl} preload="auto" loop aria-hidden="true" />
+              )}
             </div>
 
             {daten && (
@@ -656,29 +731,36 @@ export function TripVideo({ tripId }: Props) {
                   Vorbeifahren durchs Bild. Am Startpunkt steht von sich aus
                   keines, dort faengt das Video ohnehin an.
                 </p>
-                {stationsIndizes.map((i) => {
-                  const station = daten.stationen[i]!;
-                  const vorgabe = vorgabeFuerStation(station, einstellungen);
-                  const wert = einstellungen.haltProStation[i] ?? vorgabe.halt;
-                  const schild = einstellungen.schildProStation[i] ?? vorgabe.schild;
-                  return (
-                    <div className="row row--between" key={i}>
-                      <span className="truncate">
-                        <label className="row row--tight">
-                          <input
-                            type="checkbox"
-                            checked={schild}
-                            aria-label={`Schild an ${station.name}`}
-                            onChange={(e) => setzeStationSchild(i, e.target.checked)}
-                          />
-                          <span className="truncate">{station.name}</span>
-                        </label>{' '}
-                        <span className="small muted">
+                {/*
+                  Ein Gitter statt einer Zeile je Station: Alle Namen, Regler
+                  und Zahlen stehen damit untereinander auf derselben Linie.
+                  Die Zeilen sind nur Fragmente -- die Zellen sitzen direkt im
+                  Gitter, sonst richtet sich nichts spaltenweise aus.
+                */}
+                <div className="stationen">
+                  {stationsIndizes.map((i) => {
+                    const station = daten.stationen[i]!;
+                    const vorgabe = vorgabeFuerStation(station, einstellungen);
+                    const wert = einstellungen.haltProStation[i] ?? vorgabe.halt;
+                    const schild = einstellungen.schildProStation[i] ?? vorgabe.schild;
+                    const fotos = fotosJeStation.get(i) ?? [];
+                    return (
+                      <Fragment key={i}>
+                        <input
+                          id={`video-schild-${i}`}
+                          type="checkbox"
+                          checked={schild}
+                          aria-label={`Schild an ${station.name}`}
+                          onChange={(e) => setzeStationSchild(i, e.target.checked)}
+                        />
+                        <label className="stationen__name" htmlFor={`video-schild-${i}`}>
+                          {station.name}
+                        </label>
+                        <span className="stationen__km">
                           {formatKm(station.anteil * daten.track.laengeM)}
                         </span>
-                      </span>
-                      <span className="row">
                         <input
+                          className="stationen__regler"
                           type="range"
                           min={0}
                           max={10}
@@ -687,25 +769,29 @@ export function TripVideo({ tripId }: Props) {
                           aria-label={`Halt an ${station.name}`}
                           onChange={(e) => setzeStationHalt(i, Number(e.target.value))}
                         />
-                        <span className="badge">{wert} s</span>
-                        {(fotosJeStation.get(i)?.length ?? 0) > 0 && (
-                          <select
-                            aria-label={`Foto an ${station.name}`}
-                            value={einstellungen.fotoProStation[i] ?? ''}
-                            onChange={(e) => setzeStationFoto(i, e.target.value || null)}
-                          >
-                            <option value="">ohne Foto</option>
-                            {fotosJeStation.get(i)!.map((foto, n) => (
-                              <option key={foto.id} value={foto.id}>
-                                {foto.caption?.slice(0, 40) || `${foto.spot} – Bild ${n + 1}`}
-                              </option>
-                            ))}
-                          </select>
-                        )}
-                      </span>
-                    </div>
-                  );
-                })}
+                        <span className="badge stationen__dauer">{wert} s</span>
+                        {/* Auch leer ausgegeben, sonst verrutschen die Spalten
+                            in jeder Zeile ohne Foto. */}
+                        <span className="stationen__foto">
+                          {fotos.length > 0 && (
+                            <select
+                              aria-label={`Foto an ${station.name}`}
+                              value={einstellungen.fotoProStation[i] ?? ''}
+                              onChange={(e) => setzeStationFoto(i, e.target.value || null)}
+                            >
+                              <option value="">ohne Foto</option>
+                              {fotos.map((foto, n) => (
+                                <option key={foto.id} value={foto.id}>
+                                  {foto.caption?.slice(0, 40) || `${foto.spot} – Bild ${n + 1}`}
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                        </span>
+                      </Fragment>
+                    );
+                  })}
+                </div>
                 {spots.data && fotosJeStation.size === 0 && (
                   <p className="muted small">
                     Fuer ein Foto im Video braucht es einen Stellplatz mit Bild in der Naehe
@@ -997,7 +1083,10 @@ export function TripVideo({ tripId }: Props) {
                 onChange={(e) => setMusikLautstaerke(Number(e.target.value))}
                 disabled={laeuftGerade}
               />
-              <span className="field__hint">{Math.round(musikLautstaerke * 100)} %</span>
+              <span className="field__hint">
+                {Math.round(musikLautstaerke * 100)} % – die Vorschau spielt mit, samt der
+                Ausblendung am Schluss.
+              </span>
             </div>
           )}
 
