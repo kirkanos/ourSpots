@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -7,7 +8,10 @@ import {
   Param,
   Post,
   Res,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import { videoInputSchema, type VideoInput, type VideoJobDto } from '@ourspots/shared';
 import type { User } from '../generated/prisma/client';
@@ -37,6 +41,32 @@ export class VideoController {
     @CurrentUser() user: User,
   ): Promise<VideoJobDto> {
     return this.video.start(tripId, user.id, eingabe);
+  }
+
+  @Get('trips/:id/video/musik')
+  async musik(
+    @Param('id') tripId: string,
+    @CurrentUser() user: User,
+  ): Promise<{ vorhanden: boolean }> {
+    await this.video.status(tripId, user.id);
+    return { vorhanden: (await this.video.eigeneMusikdatei(tripId)) !== null };
+  }
+
+  @Post('trips/:id/video/musik')
+  @UseInterceptors(FileInterceptor('file'))
+  async musikHochladen(
+    @Param('id') tripId: string,
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @CurrentUser() user: User,
+  ): Promise<void> {
+    if (!file) throw new BadRequestException('Es wurde keine Datei übertragen');
+    await this.video.speichereMusik(tripId, user.id, file);
+  }
+
+  @Delete('trips/:id/video/musik')
+  @HttpCode(204)
+  musikLoeschen(@Param('id') tripId: string, @CurrentUser() user: User): Promise<void> {
+    return this.video.loescheMusik(tripId, user.id);
   }
 
   @Delete('trips/:id/video')

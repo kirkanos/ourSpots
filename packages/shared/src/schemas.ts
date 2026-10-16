@@ -389,6 +389,17 @@ export const videoInputSchema = z.object({
   ruhigeBeschriftung: z.boolean().default(true),
   einstellungen: videoEinstellungenSchema,
   groesse: z.enum(['720p', '1080p', '4k', 'hochformat']).default('720p'),
+  /** Titeltafel am Anfang – leerer Titel heißt: keine. */
+  titel: z.boolean().default(false),
+  /** Schlusstafel mit der Bilanz der Reise. */
+  schluss: z.boolean().default(false),
+  /**
+   * Musik: entweder ein mitgeliefertes Stück (`auswahl:<datei>`) oder die
+   * eigene Datei der Reise (`eigene`). Null bleibt still.
+   */
+  musik: z.string().max(200).nullable().default(null),
+  /** Lautstärke der Musik, 0 bis 1. */
+  musikLautstaerke: z.number().min(0).max(1).default(0.35),
   bilderProSekunde: z.number().int().min(12).max(30).default(25),
 });
 export type VideoInput = z.infer<typeof videoInputSchema>;

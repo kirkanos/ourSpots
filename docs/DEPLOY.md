@@ -251,9 +251,36 @@ alte samt Datei. Die nächtliche Sicherung lässt sie bewusst aus: Sie sind
 jederzeit aus der Reise neu erzeugbar und wären mit Hunderten Megabyte das
 Größte im Archiv.
 
+**Musik.** Mitgelieferte Stücke liegen beim Webcontainer unter `/musik/`; der
+Renderer lädt sie von dort über `VIDEO_WEB_URL`. Eigene Dateien je Reise liegen
+im Volume `video_data` unter `musik/` und sind damit für API und Renderer
+erreichbar. Der Ordner im Repository ist absichtlich leer – siehe
+`apps/web/public/musik/HERKUNFT.md`.
+
 Zwischen API und Renderer steht `VIDEO_RENDER_TOKEN` aus der `.env`. Beide
 hängen im geteilten `traefik-network`; ohne das Token könnte dort jeder Nachbar
 Renderaufträge aufgeben.
+
+## Rollen und erster Administrator
+
+Es gibt zwei globale Rollen: `admin` und `user`. Ein Administrator darf alles
+anlegen, ändern und löschen und vergibt die Rollen; was jemand innerhalb einer
+Reise darf, steht weiterhin an der Mitgliedschaft.
+
+**Auf einer bestehenden Installation** macht die Migration den ältesten Nutzer
+zum Administrator – aber nur, wenn es noch keinen gibt.
+
+**Auf einer frischen Installation** schreibt die API bei jedem Start ein
+Einrichtungstoken ins Log, solange kein Administrator existiert:
+
+```bash
+docker compose logs ourspots-api | grep -A6 "noch keinen Administrator"
+```
+
+Wer das Log lesen kann, betreibt den Server – so wird nicht der erste
+Anmeldende zum Administrator, sondern derjenige mit Zugriff auf die Maschine.
+Das Token liegt nur im Arbeitsspeicher und gilt bis zum nächsten Neustart.
+Eingegeben wird es unter *Einstellungen*.
 
 ## Datenbank-Hauptversionen
 

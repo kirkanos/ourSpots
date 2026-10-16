@@ -19,7 +19,7 @@
 import { createServer } from 'node:http';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
-import { mkdir, rm, stat } from 'node:fs/promises';
+import { mkdir, rm, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { chromium } from 'playwright';
 
@@ -103,6 +103,7 @@ const server = createServer(async (req, res) => {
 async function rendere(auftrag, melde, req) {
   const { jobId, rezept, groesse, breite, hoehe, bilderProSekunde } = auftrag;
   const skala = auftrag.skala ?? 1;
+  const musik = auftrag.musik ?? null;
   if (!jobId || !rezept) throw new Error('Unvollstaendiger Auftrag');
 
   let abgebrochen = false;
@@ -180,7 +181,12 @@ async function rendere(auftrag, melde, req) {
         (skala === 1 ? '' : ` (Buehne ${breite}x${hoehe} bei Dichte ${skala.toFixed(2)})`),
     );
 
-    ffmpeg = starteFfmpeg(ziel, bilderProSekunde);
+    // Die Tonspur erst jetzt besorgen: Sie wird nur gebraucht, wenn die Szene
+    // ueberhaupt steht, und ein Fehlschlag soll das Video nicht verhindern --
+    // ein stummes Video ist besser als gar keines.
+    const tonspur = await holeTonspur(musik, jobId);
+    const videodauer = bilderGesamt / bilderProSekunde;
+    ffmpeg = starteFfmpeg(ziel, bilderProSekunde, tonspur, videodauer);
 
     for (let i = 0; i < bilderGesamt; i++) {
       if (abgebrochen) throw new Error('Der Auftrag wurde abgebrochen');
@@ -214,6 +220,10 @@ async function rendere(auftrag, melde, req) {
     ffmpeg.stdin.end();
     await ffmpeg.fertig;
     ffmpeg = null;
+
+    // Die heruntergeladene Tonspur wird nicht mehr gebraucht; die
+    // hochgeladene gehoert der Reise und bleibt liegen.
+    await rm(join(VIDEO_DIR, `${jobId}.audio`), { force: true }).catch(() => undefined);
 
     const info = await stat(ziel);
     return { bilder: bilderGesamt, bytes: info.size, dauerS };
@@ -280,7 +290,26 @@ async function holeBild(seite, t, nummer) {
  * waere hier nutzlos. faststart schiebt die Kopfdaten nach vorn, damit das
  * Video im Browser schon waehrend des Ladens anlaeuft.
  */
-function starteFfmpeg(ziel, bilderProSekunde) {
+function starteFfmpeg(ziel, bilderProSekunde, tonspur, videodauer) {
+  const ton = [];
+  if (tonspur) {
+    // -stream_loop legt das Stueck in Schleife, falls das Video laenger ist
+    // als die Musik; -shortest schneidet am Videoende ab, falls umgekehrt.
+    // Die letzten zwei Sekunden blendet afade aus -- ein hart abgeschnittenes
+    // Stueck klingt nach Fehler.
+    const ausblendAb = Math.max(0, videodauer - 2);
+    ton.push(
+      '-stream_loop', '-1',
+      '-i', tonspur.pfad,
+      '-map', '0:v',
+      '-map', '1:a',
+      '-c:a', 'aac',
+      '-b:a', '160k',
+      '-af', `volume=${tonspur.lautstaerke.toFixed(2)},afade=t=out:st=${ausblendAb.toFixed(2)}:d=2`,
+      '-shortest',
+    );
+  }
+
   const ffmpeg = spawn(
     'ffmpeg',
     [
@@ -289,6 +318,7 @@ function starteFfmpeg(ziel, bilderProSekunde) {
       '-f', 'image2pipe',
       '-framerate', String(bilderProSekunde),
       '-i', '-',
+      ...ton,
       '-c:v', 'libx264',
       '-preset', 'veryfast',
       '-crf', '23',
@@ -340,6 +370,40 @@ function mitZeitlimit(versprechen, ms, text) {
       uhr = setTimeout(() => abgelehnt(new Error(`${text} (Zeitlimit ${ms / 1000}s)`)), ms);
     }),
   ]);
+}
+
+/**
+ * Besorgt die Tonspur als lokale Datei.
+ *
+ * Zwei Quellen: Ein mitgeliefertes Stueck liegt beim Webcontainer und wird
+ * heruntergeladen; eine hochgeladene Datei liegt im gemeinsamen Volume und
+ * wird nur nachgeschlagen.
+ *
+ * Schlaegt beides fehl, bleibt das Video stumm statt zu scheitern -- Musik ist
+ * Beiwerk, und eine halbe Stunde Rendern daran zu verlieren waere unsinnig.
+ */
+async function holeTonspur(musik, jobId) {
+  if (!musik) return null;
+  const lautstaerke = typeof musik.lautstaerke === 'number' ? musik.lautstaerke : 0.35;
+
+  try {
+    if (musik.pfad) {
+      const pfad = join(VIDEO_DIR, musik.pfad);
+      await stat(pfad);
+      return { pfad, lautstaerke };
+    }
+
+    if (musik.url) {
+      const antwort = await fetch(musik.url);
+      if (!antwort.ok) throw new Error(`Musik nicht erreichbar (${antwort.status})`);
+      const ziel = join(VIDEO_DIR, `${jobId}.audio`);
+      await writeFile(ziel, Buffer.from(await antwort.arrayBuffer()));
+      return { pfad: ziel, lautstaerke };
+    }
+  } catch (fehler) {
+    console.warn('Tonspur nicht verfuegbar, Video bleibt stumm:', fehler.message);
+  }
+  return null;
 }
 
 async function koerperLesen(req) {

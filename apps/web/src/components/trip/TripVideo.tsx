@@ -9,12 +9,16 @@ import {
   useSpots,
   useStages,
   useStartVideo,
+  useTrip,
   useVideoJob,
   useVideoStatus,
   useWaypoints,
+  useEigeneMusik,
+  useMusikStuecke,
 } from '../../api/hooks';
 import { ErrorState, Loading } from '../States';
-import { formatKm } from '../../lib/format';
+import { MusikUpload } from './MusikUpload';
+import { formatDateRange, formatKm } from '../../lib/format';
 import { baueReisedaten } from '../../video/reisedaten';
 import { entfernung } from '../../video/track';
 import {
@@ -48,6 +52,7 @@ interface Props {
 }
 
 export function TripVideo({ tripId }: Props) {
+  const trip = useTrip(tripId);
   const stages = useStages(tripId);
   const waypoints = useWaypoints(tripId);
   const cached = useCachedRoute(tripId);
@@ -64,6 +69,10 @@ export function TripVideo({ tripId }: Props) {
   const [laeuft, setLaeuft] = useState(false);
   const [zeit, setZeit] = useState(0);
   const [groesse, setGroesse] = useState<keyof typeof VIDEO_GROESSEN>('720p');
+  const [titel, setTitel] = useState(true);
+  const [schluss, setSchluss] = useState(true);
+  const [musik, setMusik] = useState<string | null>(null);
+  const [musikLautstaerke, setMusikLautstaerke] = useState(0.35);
   const [bilderProSekunde, setBilderProSekunde] = useState(25);
 
   // Ohne berechnete Route gibt es keine Geometrie – einmal anstossen.
@@ -99,6 +108,10 @@ export function TripVideo({ tripId }: Props) {
       ruhigeBeschriftung,
       einstellungen,
       groesse,
+      titel,
+      schluss,
+      musik,
+      musikLautstaerke,
       bilderProSekunde,
     }),
     [
@@ -109,6 +122,10 @@ export function TripVideo({ tripId }: Props) {
       ruhigeBeschriftung,
       einstellungen,
       groesse,
+      titel,
+      schluss,
+      musik,
+      musikLautstaerke,
       bilderProSekunde,
     ],
   );
@@ -254,6 +271,8 @@ export function TripVideo({ tripId }: Props) {
   // Ohne eingerichteten Renderer bleibt der ganze Abschnitt weg: Ein Knopf,
   // der nur einen Fehler ausloest, ist schlimmer als gar keiner.
   const rendererDa = useVideoStatus().data?.configured === true;
+  const eigeneMusik = useEigeneMusik(tripId);
+  const musikStuecke = useMusikStuecke().data ?? [];
   const auftrag = useVideoJob(tripId);
   const starten = useStartVideo(tripId);
   const loeschen = useDeleteVideo(tripId);
@@ -338,6 +357,35 @@ export function TripVideo({ tripId }: Props) {
     }
     szene.setzeFotos(fotos);
   }, [szene, fotosJeStation]);
+
+  /**
+   * Dieselbe Bilanz wie im Video, aus dem, was die Vorschau ohnehin geladen
+   * hat. Im Rezept stellt sie die API zusammen -- hier waere ein zweiter
+   * Abruf nur Umweg.
+   */
+  useEffect(() => {
+    if (!szene) return;
+    if (!route || !trip.data) {
+      szene.setzeBilanz(null, titel, schluss);
+      return;
+    }
+    szene.setzeBilanz(
+      {
+        titel: trip.data.title,
+        zeitraum:
+          trip.data.startDate || trip.data.endDate
+            ? formatDateRange(trip.data.startDate, trip.data.endDate)
+            : null,
+        distanzM: route.totalDistanceM,
+        aufstiegM: route.totalAscentM,
+        abstiegM: route.totalDescentM,
+        stationen: route.legs.length,
+        tage: reisetage(trip.data.startDate, trip.data.endDate),
+      },
+      titel,
+      schluss,
+    );
+  }, [szene, route, trip.data, titel, schluss]);
 
   useEffect(() => {
     szene?.setzeDaten(daten);
@@ -859,6 +907,68 @@ export function TripVideo({ tripId }: Props) {
             </div>
           </div>
 
+          <div className="row">
+            <button
+              type="button"
+              className="chip"
+              aria-pressed={titel}
+              onClick={() => setTitel((v) => !v)}
+            >
+              Titeltafel
+            </button>
+            <button
+              type="button"
+              className="chip"
+              aria-pressed={schluss}
+              onClick={() => setSchluss((v) => !v)}
+            >
+              Schlussbilanz
+            </button>
+          </div>
+          <div className="field">
+            <label htmlFor="video-musik">Musik</label>
+            <select
+              id="video-musik"
+              value={musik ?? ''}
+              onChange={(e) => setMusik(e.target.value || null)}
+              disabled={laeuftGerade}
+            >
+              <option value="">ohne Musik</option>
+              {eigeneMusik.data?.vorhanden && <option value="eigene">eigene Datei</option>}
+              {musikStuecke.map((stueck) => (
+                <option key={stueck.datei} value={`auswahl:${stueck.datei}`}>
+                  {stueck.titel}
+                  {stueck.urheber ? ` – ${stueck.urheber}` : ''}
+                </option>
+              ))}
+            </select>
+            <span className="field__hint">
+              <MusikUpload tripId={tripId} vorhanden={eigeneMusik.data?.vorhanden ?? false} />
+            </span>
+          </div>
+
+          {musik && (
+            <div className="field">
+              <label htmlFor="video-lautstaerke">Lautstaerke</label>
+              <input
+                id="video-lautstaerke"
+                type="range"
+                min={0.05}
+                max={1}
+                step={0.05}
+                value={musikLautstaerke}
+                onChange={(e) => setMusikLautstaerke(Number(e.target.value))}
+                disabled={laeuftGerade}
+              />
+              <span className="field__hint">{Math.round(musikLautstaerke * 100)} %</span>
+            </div>
+          )}
+
+          <p className="muted small">
+            Titel und Bilanz liegen im Vor- und Abspann – sie verlaengern das Video nicht,
+            sondern fuellen die Zeit, in der die Kamera ohnehin heran- oder wegfliegt.
+          </p>
+
           <p className="muted small">
             {zeitachse.gesamtdauer.toFixed(1)} s Video ergeben{' '}
             <strong>{bilderGesamt.toLocaleString('de-DE')} Bilder</strong>.
@@ -947,4 +1057,14 @@ export function TripVideo({ tripId }: Props) {
 /** Auf die Schrittweite des Reglers runden, damit er den Wert auch anzeigt. */
 function runde(wert: number, schritt: number): number {
   return Math.round(wert / schritt) * schritt;
+}
+
+/**
+ * Reisetage einschliesslich An- und Abreisetag -- dieselbe Rechnung wie in der
+ * API, damit Vorschau und Video dieselbe Zahl zeigen.
+ */
+function reisetage(von: string | null, bis: string | null): number | null {
+  if (!von || !bis) return null;
+  const tag = 24 * 60 * 60 * 1000;
+  return Math.max(1, Math.round((Date.parse(bis) - Date.parse(von)) / tag) + 1);
 }

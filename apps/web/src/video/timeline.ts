@@ -222,6 +222,14 @@ export interface Zustand {
   schild: { station: number; staerke: number } | null;
   /** Welches Foto gerade zu sehen ist und wie stark (0..1). */
   foto: { id: string; staerke: number } | null;
+  /**
+   * Titel- oder Schlusstafel und wie stark sie zu sehen ist (0..1).
+   *
+   * Beide liegen in Vor- und Abspann, die es ohnehin gab -- sie bekommen also
+   * keine eigene Zeit, sondern fuellen die, in der die Kamera bisher nur
+   * heran- oder wegflog.
+   */
+  tafel: { art: 'titel' | 'schluss'; staerke: number } | null;
 }
 
 /** Zustand zum Zeitpunkt t (Sekunden seit Videobeginn). */
@@ -306,6 +314,7 @@ export function zustandBei(
     gefahreneM: anteil * track.laengeM,
     schild: schildBei(zeitachse, index, lokal),
     foto: fotoBei(zeitachse, index, lokal),
+    tafel: tafelBei(aktiv.art, lokal),
   };
 }
 
@@ -365,6 +374,26 @@ function schildBei(
     return { station: voriger.station, staerke: weich(1 - lokal / 0.25) };
   }
 
+  return null;
+}
+
+/**
+ * Titel- und Schlusstafel.
+ *
+ * Der Titel steht am Anfang und macht gegen Ende des Vorspanns Platz; die
+ * Schlusstafel kommt zu Beginn des Abspanns und bleibt bis zuletzt stehen.
+ * Beide blenden weich, damit sie nicht ins Bild springen.
+ */
+function tafelBei(
+  art: Abschnitt['art'],
+  lokal: number,
+): { art: 'titel' | 'schluss'; staerke: number } | null {
+  if (art === 'vorspann') {
+    return { art: 'titel', staerke: lokal < 0.65 ? weich(lokal / 0.25) : weich((1 - lokal) / 0.35) };
+  }
+  if (art === 'abspann') {
+    return { art: 'schluss', staerke: weich(lokal / 0.3) };
+  }
   return null;
 }
 

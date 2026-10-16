@@ -87,6 +87,7 @@ services:
       # fertigen Dateien aus demselben Volume.
       VIDEO_RENDERER_URL: http://ourspots-video:3100
       VIDEO_DIR: /data/videos
+      VIDEO_WEB_URL: http://ourspots-web:${PORT}
       VIDEO_RENDER_TOKEN: ${VIDEO_RENDER_TOKEN}
       MAX_UPLOAD_MB: ${MAX_UPLOAD_MB}
       LOG_LEVEL: ${LOG_LEVEL}

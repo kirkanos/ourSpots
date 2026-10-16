@@ -67,6 +67,7 @@ services:
       PHOTO_DIR: /data/photos
       VIDEO_RENDERER_URL: http://ourspots-video:3100
       VIDEO_DIR: /data/videos
+      VIDEO_WEB_URL: http://ourspots-web:80
       VIDEO_RENDER_TOKEN: lokales-rendergeheimnis
       MAX_UPLOAD_MB: 25
       LOG_LEVEL: log

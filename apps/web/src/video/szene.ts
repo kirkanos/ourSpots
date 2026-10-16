@@ -16,7 +16,7 @@ import * as maplibregl from 'maplibre-gl';
 import type { StyleSpecification } from 'maplibre-gl';
 import { huelle, linieBis } from './track';
 import type { Zustand } from './timeline';
-import type { VideoFoto } from '@ourspots/shared';
+import type { VideoBilanz, VideoFoto } from '@ourspots/shared';
 import type { Reisedaten } from './reisedaten';
 import { DREHBAR, markerSvg, type MarkerArt } from './marker';
 import {
@@ -67,6 +67,11 @@ export class Szene {
    */
   private fotos: Record<string, VideoFoto> = {};
   private fotoKasten: HTMLDivElement | null = null;
+  private tafel: HTMLDivElement | null = null;
+  /** Eckdaten der Reise fuer Titel- und Schlusstafel. */
+  private bilanz: VideoBilanz | null = null;
+  private zeigeTitel = false;
+  private zeigeSchluss = false;
   /**
    * Die urspruenglichen Filter der Beschriftungsebenen.
    *
@@ -109,6 +114,7 @@ export class Szene {
 
     const szene = new Szene(karte, optionen);
     szene.legeFotokastenAn(behaelter);
+    szene.legeTafelAn(behaelter);
     szene.legeRoutenebenenAn();
     szene.richteGelaendeEin();
     szene.duenneBeschriftungAus();
@@ -141,6 +147,73 @@ export class Szene {
   }
 
   /** Route als zwei Linien: die ganze Strecke blass, das Gefahrene kraeftig. */
+  /**
+   * Die Tafel fuer Titel und Schlussbilanz.
+   *
+   * Ein Element fuer beides: Sie erscheinen nie gleichzeitig -- die eine liegt
+   * im Vorspann, die andere im Abspann --, und zwei Elemente waeren nur zwei
+   * Stellen, an denen dieselbe Gestaltung auseinanderlaufen kann.
+   */
+  private legeTafelAn(behaelter: HTMLElement): void {
+    const el = document.createElement('div');
+    el.className = 'videotafel';
+    el.innerHTML =
+      `<span class="videotafel__titel"></span>` +
+      `<span class="videotafel__zeile"></span>` +
+      `<span class="videotafel__zahlen"></span>`;
+    el.style.opacity = '0';
+    behaelter.appendChild(el);
+    this.tafel = el;
+  }
+
+  /** Beschriftet die Tafel und blendet sie passend ein. */
+  private zeichneTafel(zustand: Zustand): void {
+    const el = this.tafel;
+    if (!el) return;
+
+    const art = zustand.tafel?.art;
+    const gewuenscht = art === 'titel' ? this.zeigeTitel : art === 'schluss' ? this.zeigeSchluss : false;
+    if (!art || !gewuenscht || !this.bilanz) {
+      el.style.opacity = '0';
+      return;
+    }
+
+    const b = this.bilanz;
+    el.style.opacity = String(zustand.tafel!.staerke);
+    el.querySelector('.videotafel__titel')!.textContent =
+      art === 'titel' ? b.titel : 'Die Reise in Zahlen';
+    el.querySelector('.videotafel__zeile')!.textContent =
+      art === 'titel' ? (b.zeitraum ?? '') : b.titel;
+
+    const zahlen = el.querySelector<HTMLElement>('.videotafel__zahlen');
+    if (!zahlen) return;
+    if (art === 'titel') {
+      zahlen.textContent = '';
+      zahlen.style.display = 'none';
+      return;
+    }
+    zahlen.style.display = '';
+    // Hoehenmeter nur, wenn die Route welche hergibt -- eine Null waere eine
+    // Aussage, die wir nicht treffen koennen.
+    zahlen.innerHTML = '';
+    const zahl = (wert: string, text: string) => {
+      const kasten = document.createElement('span');
+      kasten.className = 'videotafel__zahl';
+      const oben = document.createElement('strong');
+      oben.textContent = wert;
+      const unten = document.createElement('span');
+      unten.textContent = text;
+      kasten.append(oben, unten);
+      zahlen.appendChild(kasten);
+    };
+    zahl(`${Math.round(b.distanzM / 1000).toLocaleString('de-DE')} km`, 'gefahren');
+    if (b.aufstiegM > 0) {
+      zahl(`${Math.round(b.aufstiegM).toLocaleString('de-DE')} m`, 'bergauf');
+    }
+    if (b.tage !== null) zahl(String(b.tage), b.tage === 1 ? 'Tag' : 'Tage');
+    zahl(String(b.stationen), b.stationen === 1 ? 'Station' : 'Stationen');
+  }
+
   private legeRoutenebenenAn(): void {
     const m = this.karte;
     const leer = { type: 'FeatureCollection' as const, features: [] };
@@ -355,6 +428,14 @@ export class Szene {
     this.fotos = fotos;
   }
 
+  /** Eckdaten und ob Titel- bzw. Schlusstafel ueberhaupt erscheinen sollen. */
+  setzeBilanz(bilanz: VideoBilanz | null, titel: boolean, schluss: boolean): void {
+    this.bilanz = bilanz;
+    this.zeigeTitel = titel;
+    this.zeigeSchluss = schluss;
+    this.zeichneErneut();
+  }
+
   setzeDaten(daten: Reisedaten | null): void {
     this.daten = daten;
     this.setzeSchilder();
@@ -506,6 +587,8 @@ export class Szene {
       }
     }
 
+    this.zeichneTafel(zustand);
+
     this.schilder.forEach((schild, i) => {
       const sichtbar = zustand.schild?.station === i ? zustand.schild.staerke : 0;
       const inhalt = schild.getElement().querySelector<HTMLElement>('.etappenschild__inhalt');
@@ -588,6 +671,8 @@ export class Szene {
     this.fahrzeug = null;
     this.fotoKasten?.remove();
     this.fotoKasten = null;
+    this.tafel?.remove();
+    this.tafel = null;
     this.karte.remove();
   }
 }

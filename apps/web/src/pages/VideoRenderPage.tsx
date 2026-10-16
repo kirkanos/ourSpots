@@ -79,6 +79,7 @@ export function VideoRenderPage() {
           throw new Error('Die Renderseite wurde waehrenddessen verlassen');
         }
         szene.setzeFotos(rezept.fotos ?? {});
+        szene.setzeBilanz(rezept.bilanz ?? null, e.titel, e.schluss);
         szene.setzeDaten(daten);
 
         // Erst hier ersetzen: `zeige` darf nicht auf halb aufgebaute Teile

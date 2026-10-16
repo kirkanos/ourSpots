@@ -385,12 +385,58 @@ export interface VideoRezept {
    * Größe – sonst würde das Rezept unnötig schwer.
    */
   fotos: Record<string, VideoFoto>;
+  bilanz: VideoBilanz;
+  /** Tonspur, sofern eine gewählt wurde. */
+  musik: VideoMusik | null;
+}
+
+/**
+ * Woher der Renderer die Tonspur bekommt.
+ *
+ * Zwei Wege, weil die Quellen verschieden liegen: Ein mitgeliefertes Stück
+ * liegt beim Webcontainer und wird von dort geladen; eine hochgeladene Datei
+ * liegt im gemeinsamen Volume, auf das API und Renderer beide zugreifen.
+ * Beides endet beim Renderer als Datei für ffmpeg.
+ */
+export interface VideoMusik {
+  /** Adresse beim Webcontainer – für die mitgelieferte Auswahl. */
+  url?: string;
+  /** Pfad unterhalb des Video-Volumes – für eine hochgeladene Datei. */
+  pfad?: string;
+  lautstaerke: number;
+}
+
+/** Ein mitgeliefertes Musikstück zur Auswahl. */
+export interface MusikStueckDto {
+  /** Dateiname, zugleich die Kennung in den Einstellungen. */
+  datei: string;
+  titel: string;
+  urheber: string | null;
+  lizenz: string;
 }
 
 export interface VideoFoto {
   /** Vollständiger `data:image/webp;base64,…`-URI. */
   bild: string;
   caption: string | null;
+}
+
+/**
+ * Die Eckdaten der Reise für Titel- und Schlusstafel.
+ *
+ * Stellt die API zusammen, nicht die Renderseite: Reisetitel, Zeitraum und
+ * Höhenmeter stehen in der Datenbank und nicht in der Geometrie.
+ */
+export interface VideoBilanz {
+  titel: string;
+  /** Zeitraum als fertiger Text, etwa „10.04. – 24.04.2026“. */
+  zeitraum: string | null;
+  distanzM: number;
+  aufstiegM: number;
+  abstiegM: number;
+  stationen: number;
+  /** Reisetage, sofern ein Zeitraum hinterlegt ist. */
+  tage: number | null;
 }
 
 /** Eine öffentliche Reise in der Übersicht für nicht angemeldete Besucher. */

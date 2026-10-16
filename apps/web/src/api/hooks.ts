@@ -35,6 +35,7 @@ import type {
   PublicTripListeDto,
   AdminUserDto,
   AdminRolleInput,
+  MusikStueckDto,
 } from '@ourspots/shared';
 import { api, buildQuery } from './client';
 import { isOfflineError } from '../offline/db';
@@ -671,5 +672,52 @@ export function useSetzeRolle() {
     mutationFn: (input: AdminRolleInput) =>
       api<AdminUserDto[]>('/admin/users', { method: 'POST', body: input }),
     onSuccess: (users) => qc.setQueryData(['admin-users'], users),
+  });
+}
+
+// --- Musik fuers Reisevideo ------------------------------------------------
+
+export function useEigeneMusik(tripId: string): UseQueryResult<{ vorhanden: boolean }> {
+  return useQuery({
+    queryKey: ['video-musik', tripId],
+    queryFn: () => api<{ vorhanden: boolean }>(`/trips/${tripId}/video/musik`),
+  });
+}
+
+export function useLadeMusikHoch(tripId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (datei: File) => {
+      const form = new FormData();
+      form.append('file', datei);
+      return api<void>(`/trips/${tripId}/video/musik`, { method: 'POST', body: form });
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['video-musik', tripId] }),
+  });
+}
+
+export function useLoescheMusik(tripId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api<void>(`/trips/${tripId}/video/musik`, { method: 'DELETE' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['video-musik', tripId] }),
+  });
+}
+
+/**
+ * Die mitgelieferten Musikstuecke.
+ *
+ * Kommen als Datei vom Webserver und nicht aus der API: Sie liegen neben der
+ * Oberflaeche, und der Renderer holt sie von genau dort.
+ */
+export function useMusikStuecke(): UseQueryResult<MusikStueckDto[]> {
+  return useQuery({
+    queryKey: ['musikstuecke'],
+    queryFn: async () => {
+      const antwort = await fetch('/musik/stuecke.json');
+      if (!antwort.ok) return [];
+      return (await antwort.json()) as MusikStueckDto[];
+    },
+    staleTime: Infinity,
   });
 }

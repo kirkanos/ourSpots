@@ -9,13 +9,14 @@ import {
   Inject,
 } from '@nestjs/common';
 import { createReadStream, type ReadStream } from 'node:fs';
-import { mkdir, rm, stat } from 'node:fs/promises';
+import { mkdir, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import {
   routeOptionsSchema,
   VIDEO_GROESSEN,
   type VideoFoto,
   type VideoInput,
+  type VideoMusik,
   type VideoJobDto,
   type VideoRezept,
 } from '@ourspots/shared';
@@ -212,12 +213,29 @@ export class VideoService implements OnModuleInit {
       );
     }
 
+    const trip = await this.prisma.trip.findUniqueOrThrow({
+      where: { id: tripId },
+      select: { title: true, startDate: true, endDate: true },
+    });
+
     return {
       einstellungen: eingabe,
       route,
       stages,
       waypoints,
       fotos: await this.sammleFotos(tripId, eingabe),
+      musik: await this.loeseMusik(tripId, eingabe),
+      bilanz: {
+        titel: trip.title,
+        zeitraum: zeitraumText(trip.startDate, trip.endDate),
+        distanzM: route.totalDistanceM,
+        aufstiegM: route.totalAscentM,
+        abstiegM: route.totalDescentM,
+        // Der Startpunkt zaehlt nicht mit: Dort faengt die Reise an, statt
+        // eine Station zu sein.
+        stationen: Math.max(0, route.legs.length),
+        tage: reisetage(trip.startDate, trip.endDate),
+      },
     };
   }
 
@@ -256,6 +274,75 @@ export class VideoService implements OnModuleInit {
       if (bild) fotos[reihe.id] = { bild, caption: reihe.caption };
     }
     return fotos;
+  }
+
+  /**
+   * Woher die Tonspur kommt -- oder null, wenn das Video still bleibt.
+   *
+   * Zwei Quellen mit verschiedenen Wegen: Ein mitgeliefertes Stueck liegt beim
+   * Webcontainer, der Renderer laedt es von dort. Eine hochgeladene Datei
+   * liegt im gemeinsamen Volume, auf das API und Renderer beide zugreifen --
+   * sie als data:-URI mitzuschicken waere bei mehreren Megabyte je Stueck
+   * unsinnig, anders als bei den Fotos.
+   */
+  private async loeseMusik(tripId: string, eingabe: VideoInput): Promise<VideoMusik | null> {
+    const wahl = eingabe.musik;
+    if (!wahl) return null;
+
+    if (wahl === 'eigene') {
+      const datei = await this.eigeneMusikdatei(tripId);
+      if (!datei) return null;
+      return { pfad: `musik/${datei}`, lautstaerke: eingabe.musikLautstaerke };
+    }
+
+    if (wahl.startsWith('auswahl:')) {
+      const name = wahl.slice('auswahl:'.length);
+      // Nur der blosse Dateiname -- sonst liesse sich ueber ../ im Webcontainer
+      // herumspazieren.
+      if (!/^[\w.-]+$/.test(name)) {
+        throw new BadRequestException('Ungueltiges Musikstueck');
+      }
+      return {
+        url: `${this.config.VIDEO_WEB_URL}/musik/${name}`,
+        lautstaerke: eingabe.musikLautstaerke,
+      };
+    }
+
+    return null;
+  }
+
+  /** Die hochgeladene Datei dieser Reise, falls vorhanden. */
+  async eigeneMusikdatei(tripId: string): Promise<string | null> {
+    const verzeichnis = join(this.config.VIDEO_DIR, 'musik');
+    const dateien = await readdir(verzeichnis).catch(() => [] as string[]);
+    return dateien.find((d) => d.startsWith(`${tripId}.`)) ?? null;
+  }
+
+  /** Speichert die eigene Musik einer Reise; ersetzt eine vorhandene. */
+  async speichereMusik(
+    tripId: string,
+    userId: string,
+    datei: { originalname: string; buffer: Buffer },
+  ): Promise<void> {
+    await this.trips.requireRole(tripId, userId, 'editor');
+
+    const endung = (datei.originalname.match(/\.(mp3|m4a|aac|ogg|wav)$/i)?.[1] ?? '').toLowerCase();
+    if (!endung) {
+      throw new BadRequestException('Erlaubt sind mp3, m4a, aac, ogg und wav');
+    }
+
+    const verzeichnis = join(this.config.VIDEO_DIR, 'musik');
+    await mkdir(verzeichnis, { recursive: true });
+    await this.loescheMusik(tripId, userId, false);
+    await writeFile(join(verzeichnis, `${tripId}.${endung}`), datei.buffer);
+  }
+
+  async loescheMusik(tripId: string, userId: string, pruefen = true): Promise<void> {
+    if (pruefen) await this.trips.requireRole(tripId, userId, 'editor');
+    const vorhanden = await this.eigeneMusikdatei(tripId);
+    if (vorhanden) {
+      await rm(join(this.config.VIDEO_DIR, 'musik', vorhanden), { force: true });
+    }
   }
 
   // --- Warteschlange --------------------------------------------------------
@@ -367,6 +454,7 @@ export class VideoService implements OnModuleInit {
         hoehe: groesse.hoehe,
         skala: groesse.skala,
         bilderProSekunde: rezept.einstellungen.bilderProSekunde,
+        musik: rezept.musik,
       }),
     });
 
@@ -454,4 +542,25 @@ async function* zeilenVon(koerper: ReadableStream<Uint8Array>): AsyncGenerator<s
     }
   }
   if (rest.trim()) yield rest.trim();
+}
+
+/** Zeitraum als fertiger Text fuer die Titeltafel. */
+function zeitraumText(von: Date | null, bis: Date | null): string | null {
+  const f = (d: Date) => d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  if (von && bis) return `${f(von)} – ${f(bis)}`;
+  if (von) return `ab ${f(von)}`;
+  if (bis) return `bis ${f(bis)}`;
+  return null;
+}
+
+/**
+ * Reisetage einschliesslich An- und Abreisetag.
+ *
+ * Eine Reise vom 10. bis zum 11. dauert zwei Tage und nicht einen -- deshalb
+ * die Differenz plus eins.
+ */
+function reisetage(von: Date | null, bis: Date | null): number | null {
+  if (!von || !bis) return null;
+  const tag = 24 * 60 * 60 * 1000;
+  return Math.max(1, Math.round((bis.getTime() - von.getTime()) / tag) + 1);
 }

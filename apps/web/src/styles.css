@@ -574,6 +574,70 @@ fieldset { border: none; padding: 0; margin: 0; }
   overflow: hidden;
 }
 
+/* Titel- und Schlusstafel. Mittig und gross: Sie haben das Bild fuer sich,
+   waehrend die Kamera heran- oder wegfliegt. Dieselbe Bildsprache wie das
+   Etappenschild -- heller Grund, dunkle Kontur, harter Schlagschatten. */
+.videotafel {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(0.35rem * var(--videoskala, 1));
+  max-width: 82%;
+  padding: calc(1.1rem * var(--videoskala, 1)) calc(1.9rem * var(--videoskala, 1));
+  border-radius: calc(0.8rem * var(--videoskala, 1));
+  background: #f5f7f2;
+  border: calc(0.17rem * var(--videoskala, 1)) solid var(--videokontur);
+  box-shadow: calc(0.3rem * var(--videoskala, 1)) calc(0.36rem * var(--videoskala, 1)) 0
+    rgb(22 35 44 / 0.75);
+  text-align: center;
+  pointer-events: none;
+}
+
+.videotafel__titel {
+  font-family: 'Caveat', cursive;
+  font-weight: 700;
+  font-size: calc(2.6rem * var(--videoskala, 1));
+  line-height: 1.05;
+  color: var(--videokontur);
+}
+
+.videotafel__zeile {
+  font-family: 'Roboto Mono', ui-monospace, monospace;
+  font-size: calc(0.78rem * var(--videoskala, 1));
+  letter-spacing: 0.09em;
+  color: #6f7a74;
+}
+
+.videotafel__zahlen {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: calc(1.3rem * var(--videoskala, 1));
+  margin-top: calc(0.5rem * var(--videoskala, 1));
+}
+
+.videotafel__zahl {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+}
+
+.videotafel__zahl strong {
+  font-size: calc(1.35rem * var(--videoskala, 1));
+  color: var(--videokontur);
+}
+
+.videotafel__zahl span {
+  font-size: calc(0.66rem * var(--videoskala, 1));
+  letter-spacing: 0.06em;
+  color: #6f7a74;
+}
+
 /* --- Buehne des Renderers -------------------------------------------------
    Diese Seite oeffnet nur der Renderer im Container. Sie ist kein Ausschnitt
    einer Oberflaeche, sondern genau das Rechteck, das fotografiert wird. */

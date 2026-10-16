@@ -57,6 +57,11 @@ const envSchema = z.object({
    */
   VIDEO_RENDERER_URL: z.string().default(''),
   VIDEO_DIR: z.string().default('/data/videos'),
+  /**
+   * Adresse, unter der der Renderer die Oberflaeche erreicht. Von dort holt
+   * er auch die mitgelieferten Musikstuecke.
+   */
+  VIDEO_WEB_URL: z.string().default('http://ourspots-web'),
   /** Gemeinsames Geheimnis zwischen API und Renderer; leer schaltet es ab. */
   VIDEO_RENDER_TOKEN: z.string().default(''),
   MAX_UPLOAD_MB: z.coerce.number().int().min(1).max(200).default(25),

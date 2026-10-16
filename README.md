@@ -118,6 +118,10 @@ senden, ohne Dubletten anzulegen.
 - Ausgaben nach Kategorien, je Reise ausgewertet bis hinunter zu Kosten pro Tag und pro Kilometer
 - Reisen für Mitreisende freigeben, mit „darf bearbeiten" oder „nur lesen"
 - Öffentlicher Link für Leute ohne Konto, wahlweise mit Fotos, jederzeit widerrufbar
+- Reisen ganz öffentlich schalten: Sie erscheinen dann unter `/entdecken`, ohne
+  Anmeldung und ohne Notizen
+- Globale Rollen: Ein Administrator vergibt Rechte, darunter die Freigabe zum
+  Erzeugen von Videos. Die Vorschau darf jeder Editor.
 
 ## Aufbau
 
