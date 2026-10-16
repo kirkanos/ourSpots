@@ -386,7 +386,18 @@ export class Szene {
     // Eigene Huelle fuer die Ausrichtung: MapLibre schreibt das transform des
     // aeusseren Elements selbst, um den Marker zu positionieren.
     el.innerHTML = `<span class="fahrzeugmarker__bild">${markerSvg(this.optionen.marker)}</span>`;
-    this.fahrzeug = new maplibregl.Marker({ element: el }).setLngLat([10.4, 51.1]).addTo(this.karte);
+    this.fahrzeug = new maplibregl.Marker({
+      element: el,
+      // Sobald Gelaende an ist, blendet MapLibre verdeckte Marker auf ein
+      // Fuenftel herunter -- gedacht fuer Stecknadeln, die hinter einem Berg
+      // liegen und dort nicht schweben sollen. Das Fahrzeug ist aber kein
+      // Punkt auf der Karte, sondern das, dem man zusieht: Hinter jedem Huegel
+      // verblasste es und kam dahinter wieder hervor. Es bleibt deshalb immer
+      // voll sichtbar.
+      opacityWhenCovered: '1',
+    })
+      .setLngLat([10.4, 51.1])
+      .addTo(this.karte);
   }
 
   private setzeSchilder(): void {
@@ -415,7 +426,9 @@ export class Szene {
       el.querySelector('.etappenschild__name')!.textContent = station.name;
       el.querySelector('.etappenschild__km')!.textContent = kmText(station.anteil * laengeM);
       el.querySelector<HTMLElement>('.etappenschild__inhalt')!.style.opacity = '0';
-      return new maplibregl.Marker({ element: el, anchor: 'bottom' })
+      // Dieselbe Ueberlegung wie beim Fahrzeug: Ein Schild, das der Berg
+      // davor halb wegnimmt, ist nicht mehr zu lesen.
+      return new maplibregl.Marker({ element: el, anchor: 'bottom', opacityWhenCovered: '1' })
         .setLngLat(station.ort)
         .addTo(this.karte);
     });
