@@ -23,7 +23,7 @@ import { baueReisedaten } from '../../video/reisedaten';
 import { entfernung } from '../../video/track';
 import {
   baueZeitachse,
-  stationenMitHalt,
+  vorgabeFuerStation,
   VORGABE,
   zeitFuerAnteil,
   zustandBei,
@@ -134,9 +134,15 @@ export function TripVideo({ tripId }: Props) {
 
   const kameraPunkte = einstellungen.kameraPunkte;
 
-  /** Nur die Stationen, an denen das Video wirklich haelt. */
-  const halteStationen = useMemo(
-    () => (daten ? stationenMitHalt(daten.etappen, daten.stationen) : []),
+  /**
+   * Alle Stationen der Reise, in der Reihenfolge der Strecke.
+   *
+   * Jede bekommt ihre eigene Zeile: Schild an oder aus, Haltedauer, Foto.
+   * Frueher standen hier nur die Etappenziele -- ein Wegpunkt unterwegs war
+   * damit weder zu benennen noch anzusteuern.
+   */
+  const stationsIndizes = useMemo(
+    () => (daten ? daten.stationen.map((_, i) => i) : []),
     [daten],
   );
 
@@ -245,15 +251,35 @@ export function TripVideo({ tripId }: Props) {
    */
   const setzeStationHalt = useCallback(
     (index: number, wert: number) => {
-      const anzahl = daten?.stationen.length ?? 0;
-      const liste = Array.from(
-        { length: anzahl },
-        (_, i) => einstellungen.haltProStation[i] ?? einstellungen.haltSekunden,
+      const stationen = daten?.stationen ?? [];
+      const liste = stationen.map(
+        (station, i) =>
+          einstellungen.haltProStation[i] ?? vorgabeFuerStation(station, einstellungen).halt,
       );
       liste[index] = wert;
       aendereEinstellungen({ haltProStation: liste });
     },
-    [daten, einstellungen.haltProStation, einstellungen.haltSekunden, aendereEinstellungen],
+    [daten, einstellungen, aendereEinstellungen],
+  );
+
+  /**
+   * Ob an dieser Station ein Schild steht.
+   *
+   * Wie beim Halt wird die ganze Liste geschrieben und nicht nur der eine
+   * Eintrag: Ein Loch mittendrin liesse sich spaeter nicht von "nicht gesetzt"
+   * unterscheiden.
+   */
+  const setzeStationSchild = useCallback(
+    (index: number, wert: boolean) => {
+      const stationen = daten?.stationen ?? [];
+      const liste = stationen.map(
+        (station, i) =>
+          einstellungen.schildProStation[i] ?? vorgabeFuerStation(station, einstellungen).schild,
+      );
+      liste[index] = wert;
+      aendereEinstellungen({ schildProStation: liste });
+    },
+    [daten, einstellungen, aendereEinstellungen],
   );
 
   /** Vorschau an die Stelle eines Kamerapunkts schieben. */
@@ -621,21 +647,32 @@ export function TripVideo({ tripId }: Props) {
               </div>
             )}
 
-            {daten && halteStationen.length > 0 && (
+            {daten && stationsIndizes.length > 0 && (
               <div className="stack">
-                <h3>Halt je Station</h3>
+                <h3>Stationen</h3>
                 <p className="muted small">
-                  Wie lange das Video an einer Station stehen bleibt. Eine 0 faehrt
-                  durch, ohne Schild. Der Startpunkt fehlt hier – dort faengt das
-                  Video an, statt stehen zu bleiben.
+                  Jede Station kann ein Schild tragen und das Video anhalten –
+                  beides getrennt einstellbar. Ohne Halt zieht das Schild im
+                  Vorbeifahren durchs Bild. Am Startpunkt steht von sich aus
+                  keines, dort faengt das Video ohnehin an.
                 </p>
-                {halteStationen.map((i) => {
+                {stationsIndizes.map((i) => {
                   const station = daten.stationen[i]!;
-                  const wert = einstellungen.haltProStation[i] ?? einstellungen.haltSekunden;
+                  const vorgabe = vorgabeFuerStation(station, einstellungen);
+                  const wert = einstellungen.haltProStation[i] ?? vorgabe.halt;
+                  const schild = einstellungen.schildProStation[i] ?? vorgabe.schild;
                   return (
                     <div className="row row--between" key={i}>
                       <span className="truncate">
-                        {station.name}{' '}
+                        <label className="row row--tight">
+                          <input
+                            type="checkbox"
+                            checked={schild}
+                            aria-label={`Schild an ${station.name}`}
+                            onChange={(e) => setzeStationSchild(i, e.target.checked)}
+                          />
+                          <span className="truncate">{station.name}</span>
+                        </label>{' '}
                         <span className="small muted">
                           {formatKm(station.anteil * daten.track.laengeM)}
                         </span>

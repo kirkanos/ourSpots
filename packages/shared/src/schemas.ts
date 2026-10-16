@@ -322,9 +322,16 @@ export const videoEinstellungenSchema = z.object({
   kameraDrehtMit: z.boolean(),
   /**
    * Haltedauer je Station, in der Reihenfolge der Stationen. Ein fehlender
-   * Eintrag erbt `haltSekunden`, eine 0 fährt ohne Halt durch.
+   * Eintrag erbt `haltSekunden` an einem Etappenziel und 0 an jeder anderen
+   * Station; eine 0 fährt ohne Halt durch.
    */
   haltProStation: z.array(z.number().min(0).max(30)).max(200).default([]),
+  /**
+   * Ob an dieser Station ein Schild steht, in der Reihenfolge der Stationen.
+   * Ein fehlender Eintrag heißt „überall außer am Startpunkt". Unabhängig vom
+   * Halt – ein Schild kann auch im Vorbeifahren erscheinen.
+   */
+  schildProStation: z.array(z.boolean()).max(200).default([]),
   /**
    * Foto je Station, in der Reihenfolge der Stationen. Null zeigt keines.
    * Bewusst optional – ein Reisevideo soll auch ohne Fotos etwas taugen.

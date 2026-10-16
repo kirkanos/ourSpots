@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "typecheck": "tsc -b --noEmit",
     "maplibre:worker": "node scripts/maplibre-worker.mjs",
-    "pruefe": "tsx pruefungen/zeitachse.ts && tsx pruefungen/kamerakurve.ts"
+    "pruefe": "tsx --tsconfig pruefungen/tsconfig.json pruefungen/reisedaten.ts && tsx pruefungen/zeitachse.ts && tsx pruefungen/kamerakurve.ts"
   },
   "dependencies": {
     "@ourspots/shared": "*",

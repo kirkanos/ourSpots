@@ -1,0 +1,7 @@
+{
+  "//": "Nur zur Laufzeit: tsx soll @ourspots/shared ueber node_modules aufloesen und nicht ueber den paths-Alias der Hauptkonfiguration. Der zeigt auf die .ts-Quelle des Pakets, und ueber diesen Weg bringt tsx die Re-Exporte von @ourspots/shared nicht zusammen -- der erste Import aus dem Paket bricht dann mit 'does not provide an export named ...' ab. Die Pruefdateien selbst stehen bewusst ausserhalb der Typpruefung: Sie reichen unvollstaendige Einstellungen hinein, um genau das abzudecken -- ein Rezept aus der Datenbank, dem ein neueres Feld fehlt.",
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "paths": {}
+  }
+}

@@ -589,8 +589,13 @@ export class Szene {
 
     this.zeichneTafel(zustand);
 
+    // Eine Zuordnung statt einer Suche je Schild: Bei einer Reise mit vielen
+    // Wegpunkten laeuft das hier je Bild.
+    const staerken = new Map<number, number>();
+    for (const s of zustand.schilder) staerken.set(s.station, s.staerke);
+
     this.schilder.forEach((schild, i) => {
-      const sichtbar = zustand.schild?.station === i ? zustand.schild.staerke : 0;
+      const sichtbar = staerken.get(i) ?? 0;
       const inhalt = schild.getElement().querySelector<HTMLElement>('.etappenschild__inhalt');
       if (!inhalt) return;
       inhalt.style.opacity = String(sichtbar);

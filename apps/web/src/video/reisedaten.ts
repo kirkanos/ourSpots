@@ -4,7 +4,7 @@
  * die Stationen mit ihren Namen.
  */
 import { decodePolyline, type StageDto, type TripRouteDto, type WaypointDto } from '@ourspots/shared';
-import { baueTrack, entfernung, type Punkt, type Track } from './track';
+import { anteilNahe, baueTrack, entfernung, type Punkt, type Track } from './track';
 import type { Etappe, Station } from './timeline';
 
 export interface Reisedaten {
@@ -15,6 +15,14 @@ export interface Reisedaten {
 
 /** Bis zu dieser Entfernung gilt ein Wegpunkt als der Ort, an dem eine Etappe endet. */
 const NAHE_GENUG_M = 2000;
+
+/**
+ * Zwei Stationen, die enger beieinander liegen, sind dieselbe.
+ *
+ * Ein Rastort und der Wegpunkt, der ihn meint, stehen selten auf demselben
+ * Meter. Ohne diese Grenze stuenden dort zwei Schilder uebereinander.
+ */
+const DIESELBE_STATION_M = 500;
 
 export function baueReisedaten(
   route: TripRouteDto,
@@ -67,7 +75,7 @@ export function baueReisedaten(
   };
 
   const stationen: Station[] = [
-    { name: nameFuer(punkte[0]!, 'Start'), ort: punkte[0]!, anteil: 0 },
+    { name: nameFuer(punkte[0]!, 'Start'), ort: punkte[0]!, anteil: 0, etappenziel: false },
   ];
   const etappen: Etappe[] = [];
   let vonIndex = 0;
@@ -86,7 +94,12 @@ export function baueReisedaten(
       bis,
       distanzM: leg.distanceM,
     });
-    stationen.push({ name: nameFuer(ort, leg.stageTitle ?? `Ziel ${i + 1}`), ort, anteil: bis });
+    stationen.push({
+      name: nameFuer(ort, leg.stageTitle ?? `Ziel ${i + 1}`),
+      ort,
+      anteil: bis,
+      etappenziel: true,
+    });
 
     vonIndex = bisIndex;
   });
@@ -98,5 +111,49 @@ export function baueReisedaten(
   etappen[etappen.length - 1]!.bis = 1;
   stationen[stationen.length - 1]!.anteil = 1;
 
+  ergaenzeZwischenstationen(track, stationen, wegpunkte);
+
   return { track, etappen, stationen };
+}
+
+/**
+ * Macht jeden Wegpunkt, der auf der Strecke liegt, zu einer eigenen Station.
+ *
+ * Ohne das traegt nur das Ende einer Teilroute einen Namen, und genau dort
+ * entstehen die Schilder. Eine Reise ohne Etappen haette dann ein einziges
+ * Schild, ganz am Schluss -- und jeder Wegpunkt, der im Reiseplaner auf "ohne
+ * Etappe" steht, bliebe stumm. Als Station kann er beides bekommen: ein Schild
+ * und, wenn gewuenscht, einen Halt.
+ *
+ * Die Liste bleibt nach Streckenanteil sortiert. Sie ist die Reihenfolge, in
+ * der die Oberflaeche ihre Regler zeigt und in der Halt, Foto und Schild je
+ * Station abgelegt sind.
+ */
+function ergaenzeZwischenstationen(
+  track: Track,
+  stationen: Station[],
+  wegpunkte: WaypointDto[],
+): void {
+  for (const wp of wegpunkte) {
+    const { anteil, abstandM, index } = anteilNahe(track, [wp.lon, wp.lat]);
+    // Ein Wegpunkt, den die Route gar nicht beruehrt, bekommt nichts: Das
+    // Schild stuende sonst irgendwo im Gelaende neben der Strecke.
+    if (abstandM > NAHE_GENUG_M) continue;
+
+    const schonDa = stationen.some(
+      (s) => entfernung(s.ort, [wp.lon, wp.lat]) < DIESELBE_STATION_M,
+    );
+    if (schonDa) continue;
+
+    stationen.push({
+      name: wp.name,
+      // Der Ort auf der Strecke, nicht der des Wegpunkts: Das Schild soll am
+      // Weg stehen, auch wenn der Stellplatz 300 m abseits liegt.
+      ort: track.punkte[index]!,
+      anteil,
+      etappenziel: false,
+    });
+  }
+
+  stationen.sort((a, b) => a.anteil - b.anteil);
 }

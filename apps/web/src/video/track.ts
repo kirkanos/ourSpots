@@ -83,6 +83,40 @@ export function kursBei(track: Track, anteil: number, fensterM = 6000): number {
   return kurs(vor, nach);
 }
 
+/**
+ * Wo auf der Strecke liegt dieser Ort?
+ *
+ * Gesucht wird der naechste Streckenpunkt, nicht der Lotfusspunkt auf dem
+ * Abschnitt dazwischen: Die Routenpunkte stehen alle paar Dutzend Meter, und
+ * fuer ein Schild am Strassenrand ist das genauer als noetig.
+ *
+ * `abstandM` sagt, wie weit der Ort von der Strecke weg liegt -- ein Wegpunkt,
+ * der gar nicht angefahren wird, bekommt damit auch kein Schild.
+ */
+export function anteilNahe(
+  track: Track,
+  ort: Punkt,
+): { anteil: number; abstandM: number; index: number } {
+  if (track.punkte.length === 0 || track.laengeM === 0) {
+    return { anteil: 0, abstandM: Infinity, index: 0 };
+  }
+
+  let besterIndex = 0;
+  let beste = Infinity;
+  for (let i = 0; i < track.punkte.length; i++) {
+    const d = entfernung(ort, track.punkte[i]!);
+    if (d < beste) {
+      beste = d;
+      besterIndex = i;
+    }
+  }
+  return {
+    anteil: track.summe[besterIndex]! / track.laengeM,
+    abstandM: beste,
+    index: besterIndex,
+  };
+}
+
 /** Die Punkte bis zu einem Streckenanteil – das ist die bereits gefahrene Linie. */
 export function linieBis(track: Track, anteil: number): Punkt[] {
   const { punkte, summe, laengeM } = track;

@@ -11,10 +11,10 @@ const etappen: Etappe[] = [
   { titel: 'Husum',     von: 0.7, bis: 1,   distanzM: track.laengeM * 0.3 },
 ];
 const stationen: Station[] = [
-  { name: 'Zuhause',   ort: punkte[0]!,   anteil: 0 },
-  { name: 'Bremen',    ort: [0, 0],       anteil: 0.4 },
-  { name: 'Greetsiel', ort: [0, 0],       anteil: 0.7 },
-  { name: 'Husum',     ort: punkte.at(-1)!, anteil: 1 },
+  { name: 'Zuhause',   ort: punkte[0]!,     anteil: 0,   etappenziel: false },
+  { name: 'Bremen',    ort: [0, 0],         anteil: 0.4, etappenziel: true },
+  { name: 'Greetsiel', ort: [0, 0],         anteil: 0.7, etappenziel: true },
+  { name: 'Husum',     ort: punkte.at(-1)!, anteil: 1,   etappenziel: true },
 ];
 
 /**
@@ -83,8 +83,9 @@ let schilderOk = true;
 start = 0;
 for (const a of z.abschnitte) {
   if (a.art === 'halt') {
-    const s = zustandBei(z, track, MIT_TEMPO, start + a.dauer / 2).schild;
-    if (!s || s.staerke !== 1 || stationen[s.station]!.anteil !== a.anteil) schilderOk = false;
+    const alle = zustandBei(z, track, MIT_TEMPO, start + a.dauer / 2).schilder;
+    const s = alle.find((x) => x.staerke === 1);
+    if (!s || stationen[s.station]!.anteil !== a.anteil) schilderOk = false;
   }
   start += a.dauer;
 }
@@ -92,7 +93,7 @@ pruefe('an jedem Halt steht das Schild der richtigen Station', schilderOk);
 
 // Ausserhalb der Nähe eines Halts darf kein Schild stehen.
 const mittenInFahrt = zustandBei(z, track, MIT_TEMPO, VORGABE.vorspannSekunden + fahrten[0]!.dauer * 0.5);
-pruefe('mitten auf der Fahrt kein Schild', mittenInFahrt.schild === null);
+pruefe('mitten auf der Fahrt kein Schild', mittenInFahrt.schilder.length === 0);
 
 // --- Pause an einem frei gesetzten Kamerapunkt --------------------------
 {
@@ -122,7 +123,7 @@ pruefe('mitten auf der Fahrt kein Schild', mittenInFahrt.schild === null);
         'waehrend der Pause steht die Strecke still',
         Math.abs(anfang.streckenAnteil - ende.streckenAnteil) < 1e-9,
       );
-      pruefe('an einer Pause ohne Station erscheint kein Schild', anfang.schild === null);
+      pruefe('an einer Pause ohne Station erscheint kein Schild', anfang.schilder.length === 0);
       geprueft = true;
     }
     t += a.dauer;
@@ -175,6 +176,75 @@ pruefe('mitten auf der Fahrt kein Schild', mittenInFahrt.schild === null);
     'ohne Punkte gilt der Schalter "Kamera dreht mit"',
     zustandBei(ohne, track, { ...MIT_TEMPO, kameraPunkte: [] }, 5).drehung === 0,
   );
+}
+
+// --- Schilder ohne Halt --------------------------------------------------
+{
+  // Eine Station mitten in der ersten Etappe, an der nicht gehalten wird.
+  const mitZwischenstation: Station[] = [
+    stationen[0]!,
+    { name: 'Durchfahrt', ort: [0, 0], anteil: 0.2, etappenziel: false },
+    ...stationen.slice(1),
+  ];
+  const zz = baueZeitachse(track, etappen, mitZwischenstation, MIT_TEMPO);
+
+  // Sie darf das Video nicht laenger machen -- ohne Halt kostet sie nichts.
+  const ohne = baueZeitachse(track, etappen, stationen, MIT_TEMPO);
+  pruefe(
+    'eine Station ohne Halt verlaengert das Video nicht',
+    Math.abs(zz.gesamtdauer - ohne.gesamtdauer) < 1e-6,
+    `(${zz.gesamtdauer.toFixed(2)} vs ${ohne.gesamtdauer.toFixed(2)})`,
+  );
+
+  // Trotzdem muss ihr Schild irgendwann voll im Bild stehen.
+  let hoechste = 0;
+  for (let t = 0; t <= zz.gesamtdauer; t += 0.05) {
+    const s = zustandBei(zz, track, MIT_TEMPO, t).schilder.find((x) => x.station === 1);
+    if (s) hoechste = Math.max(hoechste, s.staerke);
+  }
+  pruefe(
+    'das Schild einer Station ohne Halt wird trotzdem voll sichtbar',
+    hoechste > 0.999,
+    `(hoechste Staerke ${hoechste.toFixed(3)})`,
+  );
+
+  // Abschalten muss wirken.
+  const ausgeschaltet = {
+    ...MIT_TEMPO,
+    schildProStation: [false, false, false, false, false],
+  };
+  const za = baueZeitachse(track, etappen, mitZwischenstation, ausgeschaltet);
+  let irgendwo = false;
+  for (let t = 0; t <= za.gesamtdauer; t += 0.05) {
+    if (zustandBei(za, track, ausgeschaltet, t).schilder.length > 0) irgendwo = true;
+  }
+  pruefe('abgeschaltete Schilder erscheinen nirgends', !irgendwo);
+
+  // Am Startpunkt steht ohne Zutun keines.
+  let amStart = false;
+  for (let t = 0; t <= VORGABE.vorspannSekunden + 2; t += 0.05) {
+    if (zustandBei(zz, track, MIT_TEMPO, t).schilder.some((x) => x.station === 0)) amStart = true;
+  }
+  pruefe('am Startpunkt steht von sich aus kein Schild', !amStart);
+}
+
+// --- Zwei Stationen dicht beieinander ------------------------------------
+{
+  const dicht: Station[] = [
+    stationen[0]!,
+    { name: 'Ort A', ort: [0, 0], anteil: 0.5,  etappenziel: false },
+    { name: 'Ort B', ort: [0, 0], anteil: 0.505, etappenziel: false },
+    ...stationen.slice(1),
+  ];
+  const zd = baueZeitachse(track, etappen, dicht, MIT_TEMPO);
+  let beide = false;
+  for (let t = 0; t <= zd.gesamtdauer; t += 0.05) {
+    const sichtbar = zustandBei(zd, track, MIT_TEMPO, t).schilder;
+    if (sichtbar.some((x) => x.station === 1) && sichtbar.some((x) => x.station === 2)) {
+      beide = true;
+    }
+  }
+  pruefe('zwei dicht benachbarte Stationen zeigen beide Schilder', beide);
 }
 
 console.log(fehler === 0 ? '\nALLE PRUEFUNGEN BESTANDEN' : `\n${fehler} FEHLGESCHLAGEN`);
