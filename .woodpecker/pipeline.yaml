@@ -12,8 +12,18 @@ when:
   - event: push
     branch: main
 
+# Die Schritte laufen als Graph, nicht als Liste: Sobald irgendein Schritt ein
+# depends_on traegt, wertet Woodpecker die Abhaengigkeiten aus und startet
+# alles parallel, was parallel laufen darf. Deshalb braucht jeder Schritt
+# hier eine ausdrueckliche Angabe -- ein Schritt ohne depends_on wuerde sofort
+# losrennen, auch vor der Pruefung.
+#
+# Die drei Image-Builds haengen nur an "check" und laufen damit gleichzeitig.
+# Gemessen nacheinander: 24 s (web), 65 s (api), 115 s (video). Parallel
+# bestimmt der laengste die Dauer.
 steps:
   - name: Decrypt .env File
+    depends_on: []
     image: registry.kirkanos.net/images/ci-build:alpine
     pull: true
     environment:
@@ -25,6 +35,8 @@ steps:
       - event: push
 
   - name: check
+    # Braucht die .env nicht -- kann sofort mitlaufen.
+    depends_on: []
     image: node:24-bookworm-slim
     commands:
       # Typprüfung über beide Anwendungen und das gemeinsame Paket, dazu der
@@ -51,6 +63,9 @@ steps:
       - event: push
 
   - name: build api image
+    # Erst bauen, wenn Typen und Pruefungen stimmen -- sonst landet eine
+    # kaputte Fassung in der Registry.
+    depends_on: [check]
     image: woodpeckerci/plugin-kaniko
     settings:
       registry: registry.kirkanos.net
@@ -68,6 +83,9 @@ steps:
       - event: push
 
   - name: build web image
+    # Erst bauen, wenn Typen und Pruefungen stimmen -- sonst landet eine
+    # kaputte Fassung in der Registry.
+    depends_on: [check]
     image: woodpeckerci/plugin-kaniko
     settings:
       registry: registry.kirkanos.net
@@ -88,6 +106,9 @@ steps:
       - event: push
 
   - name: build video image
+    # Erst bauen, wenn Typen und Pruefungen stimmen -- sonst landet eine
+    # kaputte Fassung in der Registry.
+    depends_on: [check]
     image: woodpeckerci/plugin-kaniko
     settings:
       registry: registry.kirkanos.net
@@ -105,6 +126,11 @@ steps:
       - event: push
 
   - name: deploy files
+    depends_on:
+      - build api image
+      - build web image
+      - build video image
+      - Decrypt .env File
     image: registry.kirkanos.net/images/ci-build:alpine
     volumes: [ "/services/common/.ssh:/root/.ssh" ]
     environment:
@@ -143,6 +169,7 @@ steps:
       - event: push
 
   - name: restart service
+    depends_on: [deploy files]
     image: registry.kirkanos.net/images/ci-build:alpine
     volumes: [ "/services/common/.ssh:/root/.ssh" ]
     environment:
@@ -164,6 +191,7 @@ steps:
   # waehrend die App nicht hochkommt. Genau so ist der Sprung auf mariadb:13
   # unbemerkt durchgegangen.
   - name: verify deploy
+    depends_on: [restart service]
     image: registry.kirkanos.net/images/ci-build:alpine
     volumes: [ "/services/common/.ssh:/root/.ssh" ]
     environment:
