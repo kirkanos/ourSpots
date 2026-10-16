@@ -17,6 +17,7 @@ import { formatKm } from '../../lib/format';
 import { baueReisedaten } from '../../video/reisedaten';
 import {
   baueZeitachse,
+  stationenMitHalt,
   VORGABE,
   zeitFuerAnteil,
   zustandBei,
@@ -111,6 +112,12 @@ export function TripVideo({ tripId }: Props) {
 
   const kameraPunkte = einstellungen.kameraPunkte;
 
+  /** Nur die Stationen, an denen das Video wirklich haelt. */
+  const halteStationen = useMemo(
+    () => (daten ? stationenMitHalt(daten.etappen, daten.stationen) : []),
+    [daten],
+  );
+
   const aendereEinstellungen = useCallback((teil: Partial<Einstellungen>) => {
     setEinstellungen((alt) => ({ ...alt, ...teil }));
   }, []);
@@ -132,6 +139,9 @@ export function TripVideo({ tripId }: Props) {
       zoom: runde(jetzt.zoom, 0.25),
       neigung: Math.round(jetzt.neigung),
       tempo: runde(jetzt.tempo, 0.25),
+      drehung: runde(jetzt.drehung, 0.1),
+      // Eine Pause legt man ausdruecklich an, nicht beilaeufig.
+      halt: 0,
     };
     aendereEinstellungen({
       kameraPunkte: [...kameraPunkte, neu].sort((a, b) => a.anteil - b.anteil),
@@ -152,6 +162,27 @@ export function TripVideo({ tripId }: Props) {
       aendereEinstellungen({ kameraPunkte: kameraPunkte.filter((_, i) => i !== index) });
     },
     [kameraPunkte, aendereEinstellungen],
+  );
+
+  /**
+   * Haltedauer einer Station setzen.
+   *
+   * Die Liste wird dabei auf die volle Laenge gebracht und mit der
+   * Grundeinstellung gefuellt. Ein Loch darin waere spaeter nicht von "noch
+   * nicht gesetzt" zu unterscheiden, und beim Rendern stuende an der Stelle
+   * undefined.
+   */
+  const setzeStationHalt = useCallback(
+    (index: number, wert: number) => {
+      const anzahl = daten?.stationen.length ?? 0;
+      const liste = Array.from(
+        { length: anzahl },
+        (_, i) => einstellungen.haltProStation[i] ?? einstellungen.haltSekunden,
+      );
+      liste[index] = wert;
+      aendereEinstellungen({ haltProStation: liste });
+    },
+    [daten, einstellungen.haltProStation, einstellungen.haltSekunden, aendereEinstellungen],
   );
 
   /** Vorschau an die Stelle eines Kamerapunkts schieben. */
@@ -215,7 +246,6 @@ export function TripVideo({ tripId }: Props) {
       gelaende,
       ueberhoehung,
       ruhigeBeschriftung,
-      kameraDrehtMit: einstellungen.kameraDrehtMit,
     }).then((s) => {
       gebaut = s;
       if (verworfen) {
@@ -242,14 +272,8 @@ export function TripVideo({ tripId }: Props) {
   }, [szene, daten]);
 
   useEffect(() => {
-    szene?.setzeOptionen({
-      marker: markerArt,
-      gelaende,
-      ueberhoehung,
-      ruhigeBeschriftung,
-      kameraDrehtMit: einstellungen.kameraDrehtMit,
-    });
-  }, [szene, markerArt, gelaende, ueberhoehung, ruhigeBeschriftung, einstellungen.kameraDrehtMit]);
+    szene?.setzeOptionen({ marker: markerArt, gelaende, ueberhoehung, ruhigeBeschriftung });
+  }, [szene, markerArt, gelaende, ueberhoehung, ruhigeBeschriftung]);
 
   useEffect(() => {
     if (!szene || !zustand) return;
@@ -430,10 +454,87 @@ export function TripVideo({ tripId }: Props) {
                             <span className="field__hint">{punkt.tempo}×</span>
                           </div>
                         </div>
+                        <div className="grid grid--2">
+                          <div className="field">
+                            <label htmlFor={`kp-drehung-${i}`}>Blickrichtung</label>
+                            <input
+                              id={`kp-drehung-${i}`}
+                              type="range"
+                              min={0}
+                              max={1}
+                              step={0.1}
+                              value={punkt.drehung}
+                              onChange={(e) =>
+                                aendereKamerapunkt(i, { drehung: Number(e.target.value) })
+                              }
+                            />
+                            <span className="field__hint">
+                              {punkt.drehung === 0
+                                ? 'Norden oben'
+                                : punkt.drehung === 1
+                                  ? 'dreht mit dem Fahrzeug'
+                                  : `${Math.round(punkt.drehung * 100)} % mitgedreht`}
+                            </span>
+                          </div>
+                          <div className="field">
+                            <label htmlFor={`kp-halt-${i}`}>Pause hier</label>
+                            <input
+                              id={`kp-halt-${i}`}
+                              type="range"
+                              min={0}
+                              max={10}
+                              step={0.5}
+                              value={punkt.halt}
+                              onChange={(e) =>
+                                aendereKamerapunkt(i, { halt: Number(e.target.value) })
+                              }
+                            />
+                            <span className="field__hint">
+                              {punkt.halt === 0 ? 'faehrt durch' : `${punkt.halt} s stehen bleiben`}
+                            </span>
+                          </div>
+                        </div>
                       </div>
                     ))}
                   </div>
                 )}
+              </div>
+            )}
+
+            {daten && halteStationen.length > 0 && (
+              <div className="stack">
+                <h3>Halt je Station</h3>
+                <p className="muted small">
+                  Wie lange das Video an einer Station stehen bleibt. Eine 0 faehrt
+                  durch, ohne Schild. Der Startpunkt fehlt hier – dort faengt das
+                  Video an, statt stehen zu bleiben.
+                </p>
+                {halteStationen.map((i) => {
+                  const station = daten.stationen[i]!;
+                  const wert = einstellungen.haltProStation[i] ?? einstellungen.haltSekunden;
+                  return (
+                    <div className="row row--between" key={i}>
+                      <span className="truncate">
+                        {station.name}{' '}
+                        <span className="small muted">
+                          {formatKm(station.anteil * daten.track.laengeM)}
+                        </span>
+                      </span>
+                      <span className="row">
+                        <input
+                          type="range"
+                          min={0}
+                          max={10}
+                          step={0.5}
+                          value={wert}
+                          aria-label={`Halt an ${station.name}`}
+                          onChange={(e) => setzeStationHalt(i, Number(e.target.value))}
+                        />
+                        <span className="badge">{wert} s</span>
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             )}
 

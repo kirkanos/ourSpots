@@ -30,6 +30,24 @@ export interface Kamerapunkt {
   neigung: number;
   /** Tempofaktor: 1 = normal, 2 = doppelt so schnell, 0.5 = halb so schnell. */
   tempo: number;
+  /**
+   * Wie stark die Kamera der Fahrtrichtung folgt: 0 haelt Norden oben,
+   * 1 dreht die Karte mit dem Fahrzeug.
+   *
+   * Bewusst ein Anteil und keine Gradzahl. Eine absolute Blickrichtung muesste
+   * bei 359 Grad nach 1 Grad ueber die Null laufen, und das kann eine Kurve
+   * nicht -- sie naehme den langen Weg zurueck ueber 180 Grad. Der Anteil hat
+   * das Problem nicht und trifft die beiden Faelle, um die es geht: an der
+   * Kueste mitdrehen, im Landesinneren Norden oben lassen.
+   */
+  drehung: number;
+  /**
+   * Pause an dieser Stelle, in Sekunden. 0 heisst durchfahren.
+   *
+   * Nicht Teil der Kurve, sondern ein Ereignis: Dazwischen wird nichts
+   * ueberblendet, die Zeit steht schlicht still. Siehe timeline.ts.
+   */
+  halt: number;
 }
 
 /** Ein vorbereiteter Kanal: Stuetzstellen, Werte und die Steigungen dazu. */
@@ -44,6 +62,7 @@ export interface Kamerakurve {
   zoom: Kanal;
   neigung: Kanal;
   tempo: Kanal;
+  drehung: Kanal;
 }
 
 /**
@@ -56,6 +75,7 @@ export function baueKamerakurve(
   punkte: Kamerapunkt[],
   grundZoom: number,
   grundNeigung: number,
+  grundDrehung = 0,
 ): Kamerakurve {
   // Die Pruefung auf undefined ist kein Misstrauen gegen den Aufrufer: Das
   // Rezept eines Renderauftrags kommt als JSON aus der Datenbank, und dort
@@ -69,6 +89,7 @@ export function baueKamerakurve(
       // Ohne Punkte faehrt die ganze Reise im Grundtempo; wie schnell das ist,
       // sagt `sekundenProHundertKm`.
       tempo: konstant(1),
+      drehung: konstant(grundDrehung),
     };
   }
 
@@ -91,6 +112,7 @@ export function baueKamerakurve(
     zoom: baueKanal(x, sauber.map((p) => p.zoom)),
     neigung: baueKanal(x, sauber.map((p) => p.neigung)),
     tempo: baueKanal(x, sauber.map((p) => p.tempo)),
+    drehung: baueKanal(x, sauber.map((p) => p.drehung)),
   };
 }
 
@@ -99,10 +121,15 @@ export function kameraBei(kurve: Kamerakurve, anteil: number): {
   zoom: number;
   neigung: number;
   tempo: number;
+  drehung: number;
 } {
   return {
     zoom: werteAus(kurve.zoom, anteil),
     neigung: werteAus(kurve.neigung, anteil),
+    // Die Kurve kann zwischen zwei Punkten nicht ueber deren Werte
+    // hinausschiessen, aber ausserhalb gesetzter Punkte wird gehalten --
+    // begrenzt wird trotzdem, damit kein Rundungsrest herausfaellt.
+    drehung: Math.min(Math.max(werteAus(kurve.drehung, anteil), 0), 1),
     // Nach unten abgefangen: Ein Tempo von null brauchte unendlich lange, und
     // die Kurve kann zwischen zwei gesetzten Punkten zwar nicht unter deren
     // Minimum fallen, aber sicher ist sicher.

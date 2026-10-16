@@ -297,6 +297,10 @@ export const kamerapunktSchema = z.object({
   zoom: z.number().min(3).max(16),
   neigung: z.number().min(0).max(80),
   tempo: z.number().min(0.25).max(8).default(1),
+  /** 0 hält Norden oben, 1 dreht die Karte mit dem Fahrzeug. */
+  drehung: z.number().min(0).max(1).default(0),
+  /** Pause an dieser Stelle, in Sekunden. 0 fährt durch. */
+  halt: z.number().min(0).max(30).default(0),
 });
 export type Kamerapunkt = z.infer<typeof kamerapunktSchema>;
 
@@ -309,6 +313,11 @@ export const videoEinstellungenSchema = z.object({
   haltZoom: z.number().min(3).max(16),
   neigung: z.number().min(0).max(80),
   kameraDrehtMit: z.boolean(),
+  /**
+   * Haltedauer je Station, in der Reihenfolge der Stationen. Ein fehlender
+   * Eintrag erbt `haltSekunden`, eine 0 fährt ohne Halt durch.
+   */
+  haltProStation: z.array(z.number().min(0).max(30)).max(200).default([]),
   /**
    * Obergrenze mit Grund: Jeder Punkt ist ein Regler in der Oberfläche, und
    * der Renderer wertet die Kurve je Bild aus. Fünfzig sind weit mehr, als

@@ -73,7 +73,6 @@ export function VideoRenderPage() {
           gelaende: e.gelaende,
           ueberhoehung: e.ueberhoehung,
           ruhigeBeschriftung: e.ruhigeBeschriftung,
-          kameraDrehtMit: e.einstellungen.kameraDrehtMit,
         });
         if (abgebaut) {
           szene.zerstoere();

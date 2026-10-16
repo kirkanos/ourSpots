@@ -27,10 +27,10 @@ const MIT_TEMPO = {
   ...VORGABE,
   kameraPunkte: [
     { anteil: 0,     zoom: VORGABE.fahrtZoom, neigung: VORGABE.neigung, tempo: 1 },
-    { anteil: 0.399, zoom: VORGABE.fahrtZoom, neigung: VORGABE.neigung, tempo: 1 },
-    { anteil: 0.401, zoom: VORGABE.fahrtZoom, neigung: VORGABE.neigung, tempo: 2 },
-    { anteil: 0.699, zoom: VORGABE.fahrtZoom, neigung: VORGABE.neigung, tempo: 2 },
-    { anteil: 0.701, zoom: VORGABE.fahrtZoom, neigung: VORGABE.neigung, tempo: 1 },
+    { anteil: 0.399, zoom: VORGABE.fahrtZoom, neigung: VORGABE.neigung, tempo: 1, drehung: 0, halt: 0 },
+    { anteil: 0.401, zoom: VORGABE.fahrtZoom, neigung: VORGABE.neigung, tempo: 2, drehung: 0, halt: 0 },
+    { anteil: 0.699, zoom: VORGABE.fahrtZoom, neigung: VORGABE.neigung, tempo: 2, drehung: 0, halt: 0 },
+    { anteil: 0.701, zoom: VORGABE.fahrtZoom, neigung: VORGABE.neigung, tempo: 1, drehung: 0, halt: 0 },
     { anteil: 1,     zoom: VORGABE.fahrtZoom, neigung: VORGABE.neigung, tempo: 1 },
   ],
 };
@@ -93,6 +93,89 @@ pruefe('an jedem Halt steht das Schild der richtigen Station', schilderOk);
 // Ausserhalb der Nähe eines Halts darf kein Schild stehen.
 const mittenInFahrt = zustandBei(z, track, MIT_TEMPO, VORGABE.vorspannSekunden + fahrten[0]!.dauer * 0.5);
 pruefe('mitten auf der Fahrt kein Schild', mittenInFahrt.schild === null);
+
+// --- Pause an einem frei gesetzten Kamerapunkt --------------------------
+{
+  const mitPause = {
+    ...MIT_TEMPO,
+    kameraPunkte: MIT_TEMPO.kameraPunkte.map((p) =>
+      // Mitten in der ersten Etappe, wo keine Station liegt.
+      Math.abs(p.anteil - 0.399) < 1e-9 ? { ...p, halt: 4 } : p,
+    ),
+  };
+  const zp = baueZeitachse(track, etappen, stationen, mitPause);
+  pruefe(
+    'eine Pause am Kamerapunkt verlaengert das Video um genau ihre Dauer',
+    Math.abs(zp.gesamtdauer - z.gesamtdauer - 4) < 1e-6,
+    `(${zp.gesamtdauer.toFixed(2)} statt ${z.gesamtdauer.toFixed(2)})`,
+  );
+
+  // Waehrend der Pause steht die Strecke still und es erscheint kein Schild:
+  // an dieser Stelle gibt es keinen Ort zu benennen.
+  let t = 0;
+  let geprueft = false;
+  for (const a of zp.abschnitte) {
+    if (a.art === 'halt' && a.station === null) {
+      const anfang = zustandBei(zp, track, mitPause, t + 0.1);
+      const ende = zustandBei(zp, track, mitPause, t + a.dauer - 0.1);
+      pruefe(
+        'waehrend der Pause steht die Strecke still',
+        Math.abs(anfang.streckenAnteil - ende.streckenAnteil) < 1e-9,
+      );
+      pruefe('an einer Pause ohne Station erscheint kein Schild', anfang.schild === null);
+      geprueft = true;
+    }
+    t += a.dauer;
+  }
+  pruefe('die Pause liegt als eigener Abschnitt in der Zeitachse', geprueft);
+}
+
+// --- Haltedauer je Station ----------------------------------------------
+{
+  // Station 1 (Bremen) soll 6 s statt der ueblichen stehen, Station 2 gar nicht.
+  const halte = stationen.map(() => VORGABE.haltSekunden);
+  halte[1] = 6;
+  halte[2] = 0;
+  const zs = baueZeitachse(track, etappen, stationen, { ...MIT_TEMPO, haltProStation: halte });
+
+  const dauerAn = (index: number) =>
+    zs.abschnitte
+      .filter((a): a is Extract<typeof a, { art: 'halt' }> => a.art === 'halt')
+      .filter((a) => a.station === index)
+      .reduce((summe, a) => summe + a.dauer, 0);
+
+  pruefe('die eingestellte Haltedauer gilt', Math.abs(dauerAn(1) - 6) < 1e-9, `(${dauerAn(1)} s)`);
+  pruefe('eine 0 faehrt ohne Halt durch', dauerAn(2) === 0);
+  pruefe(
+    'die uebrigen Stationen behalten die Grundeinstellung',
+    Math.abs(dauerAn(3) - VORGABE.haltSekunden) < 1e-9,
+  );
+}
+
+// --- Blickrichtung ------------------------------------------------------
+{
+  const gedreht = {
+    ...MIT_TEMPO,
+    kameraPunkte: [
+      { anteil: 0, zoom: 8.5, neigung: 50, tempo: 1, drehung: 0, halt: 0 },
+      { anteil: 1, zoom: 8.5, neigung: 50, tempo: 1, drehung: 1, halt: 0 },
+    ],
+  };
+  const zd = baueZeitachse(track, etappen, stationen, gedreht);
+  const anfang = zustandBei(zd, track, gedreht, zd.gesamtdauer * 0.05).drehung;
+  const ende = zustandBei(zd, track, gedreht, zd.gesamtdauer * 0.97).drehung;
+  pruefe(
+    'die Blickrichtung laeuft von Norden oben zum Mitdrehen',
+    anfang < 0.2 && ende > 0.8,
+    `(${anfang.toFixed(2)} -> ${ende.toFixed(2)})`,
+  );
+  // Ohne gesetzte Punkte zieht die Grundeinstellung.
+  const ohne = baueZeitachse(track, etappen, stationen, { ...MIT_TEMPO, kameraPunkte: [] });
+  pruefe(
+    'ohne Punkte gilt der Schalter "Kamera dreht mit"',
+    zustandBei(ohne, track, { ...MIT_TEMPO, kameraPunkte: [] }, 5).drehung === 0,
+  );
+}
 
 console.log(fehler === 0 ? '\nALLE PRUEFUNGEN BESTANDEN' : `\n${fehler} FEHLGESCHLAGEN`);
 process.exit(fehler === 0 ? 0 : 1);

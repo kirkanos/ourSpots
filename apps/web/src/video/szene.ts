@@ -31,7 +31,6 @@ export interface SzeneOptionen {
   gelaende: boolean;
   ueberhoehung: number;
   ruhigeBeschriftung: boolean;
-  kameraDrehtMit: boolean;
 }
 
 export class Szene {
@@ -341,6 +340,11 @@ export class Szene {
       geometry: { type: 'LineString', coordinates: gefahren },
     });
 
+    // Wie weit das Fahrzeug auf dem Bildschirm von "nach oben" abweicht.
+    // Dreht die Karte voll mit (drehung = 1), zeigt es immer nach oben; steht
+    // Norden oben (0), entspricht es dem Kurs. Dazwischen anteilig.
+    const schirmkurs = zustand.kurs * (1 - zustand.drehung);
+
     this.fahrzeug?.setLngLat(zustand.ort);
     const bild = this.fahrzeug?.getElement().querySelector<HTMLElement>('.fahrzeugmarker__bild');
     if (bild) {
@@ -348,15 +352,15 @@ export class Szene {
       // das Fahrzeug bei Suedkurs auf dem Dach. Sie wird nur gespiegelt.
       // Dreht die Kamera mit, zeigt die Fahrtrichtung ohnehin immer nach oben.
       if (DREHBAR[this.optionen.marker]) {
-        bild.style.transform = `rotate(${zustand.kurs}deg)`;
-      } else if (this.optionen.kameraDrehtMit) {
-        bild.style.transform = 'none';
+        bild.style.transform = `rotate(${schirmkurs}deg)`;
       } else {
         // Totbereich um Nord und Sued: Dort ist die Ost-West-Entscheidung
         // ohnehin fast beliebig, und ohne ihn kippt das Fahrzeug bei jeder
         // kleinen Kurve hin und her. Umgedreht wird erst, wenn der Kurs
-        // eindeutig in die andere Haelfte zeigt.
-        const kurs = zustand.kurs;
+        // eindeutig in die andere Haelfte zeigt. Gerechnet wird mit dem
+        // Bildschirmkurs: Dreht die Karte mit, steht das Fahrzeug ohnehin
+        // aufrecht und soll nicht gespiegelt werden.
+        const kurs = (schirmkurs + 360) % 360;
         if (kurs > 200 && kurs < 340) this.blickt = 'west';
         else if (kurs > 20 && kurs < 160) this.blickt = 'ost';
         bild.style.transform = this.blickt === 'west' ? 'scaleX(-1)' : 'none';
@@ -364,7 +368,7 @@ export class Szene {
     }
 
     // Zwischen Uebersicht und Nahaufnahme blenden.
-    const dreht = this.optionen.kameraDrehtMit;
+    const blick = zustand.kurs * zustand.drehung;
     if (zustand.naehe < 0.999) {
       const [west, sued, ost, nord] = huelle(daten.track.punkte);
       const uebersicht = m.cameraForBounds(
@@ -382,14 +386,14 @@ export class Szene {
           ziel.lat + (zustand.ort[1] - ziel.lat) * zustand.naehe,
         ],
         zoom: zielZoom + (zustand.zoom - zielZoom) * zustand.naehe,
-        bearing: (dreht ? zustand.kurs : 0) * zustand.naehe,
+        bearing: blick * zustand.naehe,
         pitch: zustand.neigung * zustand.naehe,
       });
     } else {
       m.jumpTo({
         center: zustand.ort,
         zoom: zustand.zoom,
-        bearing: dreht ? zustand.kurs : 0,
+        bearing: blick,
         pitch: zustand.neigung,
       });
     }

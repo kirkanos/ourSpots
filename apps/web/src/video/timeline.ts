@@ -66,8 +66,16 @@ export interface Einstellungen {
    * weich ueberblendet. Leer heisst "ueberall die Grundeinstellung".
    */
   kameraPunkte: Kamerapunkt[];
-  /** Dreht die Karte in Fahrtrichtung. */
+  /**
+   * Dreht die Karte in Fahrtrichtung. Nur die Grundeinstellung -- gesetzte
+   * Kamerapunkte bestimmen es danach stufenlos.
+   */
   kameraDrehtMit: boolean;
+  /**
+   * Haltedauer je Station, in der Reihenfolge der Stationen. Fehlt ein
+   * Eintrag, gilt `haltSekunden`. Eine 0 faehrt ohne Halt durch.
+   */
+  haltProStation: number[];
 }
 
 export const VORGABE: Einstellungen = {
@@ -79,13 +87,17 @@ export const VORGABE: Einstellungen = {
   haltZoom: 10.5,
   neigung: 50,
   kameraDrehtMit: false,
+  haltProStation: [],
   kameraPunkte: [],
 };
 
 type Abschnitt =
   | { art: 'vorspann'; dauer: number; anteil: number }
   | { art: 'fahrt'; dauer: number; von: number; bis: number; etappe: number }
-  | { art: 'halt'; dauer: number; anteil: number; station: number }
+  // station ist null, wenn an dieser Stelle keine Station liegt -- ein Halt,
+  // den jemand frei auf die Strecke gesetzt hat. Dann erscheint auch kein
+  // Schild.
+  | { art: 'halt'; dauer: number; anteil: number; station: number | null }
   | { art: 'abspann'; dauer: number; anteil: number };
 
 export interface Zeitachse {
@@ -109,7 +121,12 @@ export function baueZeitachse(
   stationen: Station[],
   e: Einstellungen,
 ): Zeitachse {
-  const kamera = baueKamerakurve(e.kameraPunkte, e.fahrtZoom, e.neigung);
+  const kamera = baueKamerakurve(
+    e.kameraPunkte,
+    e.fahrtZoom,
+    e.neigung,
+    e.kameraDrehtMit ? 1 : 0,
+  );
   const tempo = baueTempoprofil(kamera);
 
   // Was eine Fahrzeit-Einheit des Profils in Sekunden bedeutet. Ohne gesetzte
@@ -121,30 +138,46 @@ export function baueZeitachse(
 
   abschnitte.push({ art: 'vorspann', dauer: e.vorspannSekunden, anteil: 0 });
 
-  etappen.forEach((etappe, i) => {
-    // Das Tempo wirkt auf die Dauer, nicht auf die Strecke. Es steht nicht
-    // mehr je Etappe fest, sondern laeuft entlang der Reise -- die Dauer eines
-    // Abschnitts ist deshalb die Differenz der aufsummierten Fahrzeit an
-    // seinen Enden, nicht Distanz geteilt durch einen Faktor.
-    const sekunden =
-      (fahrzeitBis(tempo, etappe.bis) - fahrzeitBis(tempo, etappe.von)) * sekundenJeEinheit;
-    abschnitte.push({
-      art: 'fahrt',
-      dauer: Math.max(0.2, sekunden),
-      von: etappe.von,
-      bis: etappe.bis,
-      etappe: i,
-    });
+  // Gefahren wird von Halt zu Halt. Frueher fiel das zusammen -- ein Halt lag
+  // immer am Ende einer Etappe --, seit Kamerapunkte eine eigene Pause tragen
+  // duerfen aber nicht mehr. Deshalb erst alle Haltestellen einsammeln und die
+  // Fahrt daran aufteilen, statt ueber die Etappen zu laufen.
+  const halte = sammleHalte(etappen, stationen, e);
 
-    // Nach jeder Etappe der Halt an ihrem Ziel.
-    const station = stationen.findIndex((s) => Math.abs(s.anteil - etappe.bis) < 1e-9);
-    abschnitte.push({
-      art: 'halt',
-      dauer: e.haltSekunden,
-      anteil: etappe.bis,
-      station: station >= 0 ? station : Math.min(i + 1, stationen.length - 1),
-    });
-  });
+  let von = 0;
+  for (const halt of [...halte, null]) {
+    const bis = halt ? halt.anteil : 1;
+
+    if (bis > von + 1e-9) {
+      const sekunden = (fahrzeitBis(tempo, bis) - fahrzeitBis(tempo, von)) * sekundenJeEinheit;
+      abschnitte.push({
+        art: 'fahrt',
+        // Nur gegen die glatte Null abgesichert, nicht gegen kurze Abschnitte.
+        // Frueher stand hier 0.2, als ein Abschnitt immer eine ganze Etappe
+        // war. Seit die Fahrt an jeder Pause geteilt wird, entstehen
+        // zwangslaeufig kurze Stuecke -- eine Pause kurz vor einer Station
+        // laesst ein Reststueck von wenigen hundert Metern uebrig. Mit der
+        // alten Untergrenze waere daraus eine sichtbare Verzoegerung von zwei
+        // Zehnteln geworden, und die Gesamtdauer haette nicht mehr zur Summe
+        // aus Fahrzeit und Pausen gepasst.
+        dauer: Math.max(0.001, sekunden),
+        von,
+        bis,
+        // Fuer die Einblendung: die Etappe, in der dieser Abschnitt liegt.
+        etappe: etappeBei(etappen, (von + bis) / 2),
+      });
+      von = bis;
+    }
+
+    if (halt && halt.dauer > 0) {
+      abschnitte.push({
+        art: 'halt',
+        dauer: halt.dauer,
+        anteil: halt.anteil,
+        station: halt.station,
+      });
+    }
+  }
 
   abschnitte.push({ art: 'abspann', dauer: e.abspannSekunden, anteil: 1 });
 
@@ -165,6 +198,8 @@ export interface Zustand {
   kurs: number;
   zoom: number;
   neigung: number;
+  /** Wie stark die Karte der Fahrtrichtung folgt: 0 Norden oben, 1 mitdrehen. */
+  drehung: number;
   /** 0 = Uebersicht ueber die ganze Reise, 1 = dicht am Fahrzeug. */
   naehe: number;
   etappenIndex: number;
@@ -249,6 +284,7 @@ export function zustandBei(
     // In der Uebersicht senkrecht von oben, beim Fahren geneigt -- die
     // Ueberblendung uebernimmt `naehe` an der Aufrufstelle.
     neigung: kamera.neigung,
+    drehung: kamera.drehung,
     naehe,
     etappenIndex,
     gefahreneM: anteil * track.laengeM,
@@ -284,6 +320,9 @@ export function zeitFuerAnteil(zeitachse: Zeitachse, anteil: number): number {
 /**
  * Das Schild einer Station wird kurz vor dem Halt eingeblendet und kurz danach
  * wieder weggenommen – sonst erscheint es hart im Bild.
+ *
+ * An einem Halt ohne Station -- einer Pause, die jemand frei auf die Strecke
+ * gesetzt hat -- erscheint nichts: Es gibt dort keinen Ort zu benennen.
  */
 function schildBei(
   zeitachse: Zeitachse,
@@ -292,18 +331,20 @@ function schildBei(
 ): { station: number; staerke: number } | null {
   const aktiv = zeitachse.abschnitte[index]!;
 
-  if (aktiv.art === 'halt') return { station: aktiv.station, staerke: 1 };
+  if (aktiv.art === 'halt') {
+    return aktiv.station === null ? null : { station: aktiv.station, staerke: 1 };
+  }
 
   if (aktiv.art === 'fahrt') {
     // Letztes Fuenftel der Fahrt: das Schild des naechsten Ziels faehrt hoch.
     const naechster = zeitachse.abschnitte[index + 1];
-    if (naechster?.art === 'halt' && lokal > 0.8) {
+    if (naechster?.art === 'halt' && naechster.station !== null && lokal > 0.8) {
       return { station: naechster.station, staerke: weich((lokal - 0.8) / 0.2) };
     }
   }
 
   const voriger = zeitachse.abschnitte[index - 1];
-  if (voriger?.art === 'halt' && lokal < 0.25 && aktiv.art !== 'vorspann') {
+  if (voriger?.art === 'halt' && voriger.station !== null && lokal < 0.25 && aktiv.art !== 'vorspann') {
     return { station: voriger.station, staerke: weich(1 - lokal / 0.25) };
   }
 
@@ -314,4 +355,80 @@ function schildBei(
 function weich(x: number): number {
   const k = Math.min(Math.max(x, 0), 1);
   return k * k * (3 - 2 * k);
+}
+
+/**
+ * Die Stationen, an denen das Video ueberhaupt haelt -- je Etappenziel eine.
+ *
+ * Nicht jede Station bekommt einen Halt: Der Startpunkt liegt bei Kilometer 0,
+ * dort faengt das Video an, statt stehen zu bleiben. Die Oberflaeche braucht
+ * dieselbe Regel wie der Zeitachsenbau, sonst zeigt sie einen Regler ohne
+ * Wirkung.
+ */
+export function stationenMitHalt(etappen: Etappe[], stationen: Station[]): number[] {
+  const index: number[] = [];
+  for (const etappe of etappen) {
+    const i = stationen.findIndex((s) => Math.abs(s.anteil - etappe.bis) < 1e-9);
+    if (i >= 0 && !index.includes(i)) index.push(i);
+  }
+  return index;
+}
+
+/** Eine Stelle, an der das Video stehen bleibt. */
+interface Haltestelle {
+  anteil: number;
+  dauer: number;
+  /** Index der Station, falls hier eine liegt -- sonst null. */
+  station: number | null;
+}
+
+/**
+ * Sammelt alle Halte der Reise ein: die an den Stationen und die, die jemand
+ * frei auf einen Kamerapunkt gesetzt hat.
+ *
+ * Liegen zwei dicht beieinander, wird daraus einer. Sonst bekaeme man zwei
+ * Pausen im Abstand weniger Meter, dazwischen eine Fahrt von Bruchteilen einer
+ * Sekunde -- im Video ein Ruckeln ohne erkennbaren Grund.
+ */
+function sammleHalte(
+  etappen: Etappe[],
+  stationen: Station[],
+  e: Einstellungen,
+): Haltestelle[] {
+  const roh: Haltestelle[] = [];
+
+  etappen.forEach((etappe) => {
+    const station = stationen.findIndex((s) => Math.abs(s.anteil - etappe.bis) < 1e-9);
+    const index = station >= 0 ? station : null;
+    // Dieselbe Regel wie in stationenMitHalt -- die Oberflaeche zeigt genau
+    // die Regler, die hier auch wirken.
+    // Je Station einstellbar; ohne eigenen Wert gilt die Grundeinstellung.
+    const dauer = index !== null ? (e.haltProStation[index] ?? e.haltSekunden) : e.haltSekunden;
+    roh.push({ anteil: etappe.bis, dauer, station: index });
+  });
+
+  for (const punkt of e.kameraPunkte ?? []) {
+    if (punkt.halt > 0) roh.push({ anteil: punkt.anteil, dauer: punkt.halt, station: null });
+  }
+
+  roh.sort((a, b) => a.anteil - b.anteil);
+
+  const halte: Haltestelle[] = [];
+  for (const h of roh) {
+    const vorher = halte[halte.length - 1];
+    if (vorher && Math.abs(h.anteil - vorher.anteil) < 1e-6) {
+      // Zusammenlegen: die laengere Pause gewinnt, die Station bleibt erhalten.
+      vorher.dauer = Math.max(vorher.dauer, h.dauer);
+      vorher.station = vorher.station ?? h.station;
+    } else {
+      halte.push({ ...h });
+    }
+  }
+  return halte;
+}
+
+/** In welcher Etappe liegt dieser Streckenanteil? */
+function etappeBei(etappen: Etappe[], anteil: number): number {
+  const i = etappen.findIndex((e) => anteil >= e.von && anteil <= e.bis);
+  return i >= 0 ? i : Math.max(0, etappen.length - 1);
 }
