@@ -14,6 +14,7 @@ import { ShareModule } from './share/share.module';
 import { TransferModule } from './transfer/transfer.module';
 import { VehiclesModule } from './vehicles/vehicles.module';
 import { VideoModule } from './video/video.module';
+import { AdminModule } from './admin/admin.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -31,6 +32,7 @@ import { HealthController } from './health.controller';
     TransferModule,
     VehiclesModule,
     VideoModule,
+    AdminModule,
   ],
   controllers: [HealthController],
   providers: [

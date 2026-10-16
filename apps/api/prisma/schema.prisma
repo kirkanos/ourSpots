@@ -33,6 +33,13 @@ model User {
   createdAt   DateTime  @default(now())
   lastLoginAt DateTime?
 
+  /// Globale Rolle: "admin" oder "user". Ein Admin darf alles anlegen,
+  /// aendern und loeschen und vergibt die Rollen der anderen.
+  role        String    @default("user") @db.VarChar(20)
+  /// Darf fertige Videos rendern lassen. Die Vorschau darf jeder Editor --
+  /// das Rendern bindet dagegen minutenlang einen ganzen Container.
+  canRenderVideo Boolean @default(false)
+
   /// Heimatadresse: Ausgangs- und meist auch Endpunkt der Reisen. Entweder
   /// stehen Koordinaten und Name zusammen, oder das Feld ist ungesetzt.
   homeName    String?   @db.VarChar(200)
@@ -96,6 +103,9 @@ model Trip {
   startDate    DateTime? @db.Date
   endDate      DateTime? @db.Date
   status       String    @default("planned") @db.VarChar(20)
+  /// Oeffentlich sichtbar, auch ohne Anmeldung. Notizen bleiben dabei
+  /// aussen vor -- eine oeffentliche Reise liest die ganze Welt.
+  isPublic     Boolean   @default(false)
   vehicleId    String?   @db.Char(36)
   vehicle      Vehicle?  @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
   coverPhotoId String?   @db.Char(36)

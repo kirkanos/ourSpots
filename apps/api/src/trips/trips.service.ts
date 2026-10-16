@@ -20,7 +20,14 @@ import { assertRole } from './trip-access';
 export class TripsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  /** Rolle des Nutzers in einer Reise, oder null ohne jeden Zugriff. */
+  /**
+   * Rolle des Nutzers in einer Reise, oder null ohne jeden Zugriff.
+   *
+   * Ein Admin zaehlt ueberall als Eigentuemer -- er darf anlegen, aendern und
+   * loeschen. Das ist bewusst keine Sonderbehandlung an jeder Aufrufstelle,
+   * sondern genau hier: So kann keine Route die Pruefung versehentlich
+   * auslassen, und es gibt nur eine Stelle, an der diese Macht beginnt.
+   */
   async roleOf(tripId: string, userId: string): Promise<TripRole | null> {
     const trip = await this.prisma.trip.findUnique({
       where: { id: tripId },
@@ -28,22 +35,37 @@ export class TripsService {
     });
     if (!trip) return null;
     if (trip.ownerId === userId) return 'owner';
+    if (await this.istAdmin(userId)) return 'owner';
     const member = trip.members[0];
     return member ? (member.role as TripRole) : null;
+  }
+
+  /** Ob dieser Nutzer die globale Rolle "admin" traegt. */
+  async istAdmin(userId: string): Promise<boolean> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+    return user?.role === 'admin';
   }
 
   async requireRole(tripId: string, userId: string, required: TripRole): Promise<TripRole> {
     return assertRole(await this.roleOf(tripId, userId), required);
   }
 
-  /** Reisen, auf die der Nutzer als Eigentümer oder Mitglied Zugriff hat. */
-  private accessFilter(userId: string): Prisma.TripWhereInput {
+  /**
+   * Reisen, auf die der Nutzer als Eigentümer oder Mitglied Zugriff hat.
+   *
+   * Fuer einen Admin faellt die Einschraenkung weg: Er sieht alle Reisen.
+   */
+  private accessFilter(userId: string, admin: boolean): Prisma.TripWhereInput {
+    if (admin) return {};
     return { OR: [{ ownerId: userId }, { members: { some: { userId } } }] };
   }
 
   async list(userId: string): Promise<TripDto[]> {
     const trips = await this.prisma.trip.findMany({
-      where: this.accessFilter(userId),
+      where: this.accessFilter(userId, await this.istAdmin(userId)),
       orderBy: [{ startDate: 'desc' }, { createdAt: 'desc' }],
       include: {
         members: { where: { userId }, select: { role: true } },
@@ -77,8 +99,6 @@ export class TripsService {
           email: null,
           displayName: '',
           avatarUrl: null,
-          // Die Heimatadresse ist Privatsache und geht Mitreisende nichts an.
-          home: null,
         },
       },
       ...trip.members.map((m) => ({
@@ -101,7 +121,6 @@ export class TripsService {
         email: owner.email,
         displayName: owner.displayName,
         avatarUrl: owner.avatarUrl,
-        home: null,
       };
     }
     return dto;
@@ -335,6 +354,7 @@ export class TripsService {
       startDate: fromDateOnly(trip.startDate),
       endDate: fromDateOnly(trip.endDate),
       status: trip.status as TripStatus,
+      isPublic: trip.isPublic,
       vehicleId: trip.vehicleId,
       coverPhotoId: trip.coverPhotoId,
       ownerId: trip.ownerId,

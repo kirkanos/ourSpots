@@ -245,7 +245,12 @@ export class SpotsService {
   }
 
   private toDto(spot: SpotWithRelations, viewerId?: string): SpotDto {
-    const hideNotes = spot.isPrivateNote && viewerId !== undefined && spot.createdById !== viewerId;
+    // Zwischen angemeldeten Nutzern gibt es keine privaten Notizen mehr --
+    // wer Zugriff auf die Reise hat, sieht sie vollstaendig. Das Feld bleibt
+    // erhalten: Es steuert weiterhin, was in einer oeffentlich geteilten
+    // Ansicht erscheint, und dort liest die ganze Welt mit.
+    const hideNotes = false;
+    void viewerId;
     return {
       id: spot.id,
       tripId: spot.tripId,

@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
@@ -94,6 +95,7 @@ export class VideoService implements OnModuleInit {
    */
   async start(tripId: string, userId: string, eingabe: VideoInput): Promise<VideoJobDto> {
     await this.trips.requireRole(tripId, userId, 'editor');
+    await this.darfRendern(userId);
     if (!this.verfuegbar) {
       throw new ServiceUnavailableException('Auf diesem Server ist kein Renderer eingerichtet');
     }
@@ -136,6 +138,25 @@ export class VideoService implements OnModuleInit {
     void this.arbeiteAb();
 
     return zuDto(job);
+  }
+
+  /**
+   * Das Rendern braucht ein eigenes Recht, die Vorschau nicht.
+   *
+   * Die Vorschau laeuft im Browser des Nutzers und kostet niemanden etwas.
+   * Ein Renderlauf belegt dagegen minutenlang den einzigen Rendercontainer --
+   * wer ihn ausloesen darf, ist deshalb eine Entscheidung des Administrators
+   * und nicht eine Frage der Rolle innerhalb der Reise.
+   */
+  private async darfRendern(userId: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true, canRenderVideo: true },
+    });
+    if (user?.role === 'admin' || user?.canRenderVideo) return;
+    throw new ForbiddenException(
+      'Zum Erzeugen von Videos fehlt dir die Freigabe. Die Vorschau kannst du trotzdem nutzen.',
+    );
   }
 
   async remove(tripId: string, userId: string): Promise<void> {

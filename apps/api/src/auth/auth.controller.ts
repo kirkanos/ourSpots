@@ -185,6 +185,8 @@ function toUserDto(user: User): UserDto {
     email: user.email,
     displayName: user.displayName,
     avatarUrl: user.avatarUrl,
+    role: user.role as UserDto['role'],
+    canRenderVideo: user.canRenderVideo,
     // Ohne Koordinaten ist die Adresse fuer Start und Ziel wertlos, deshalb
     // zaehlt nur ein vollstaendiger Eintrag.
     home:

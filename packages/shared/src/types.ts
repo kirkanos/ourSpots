@@ -18,6 +18,24 @@ export interface HomeDto {
   address: string | null;
 }
 
+/** Globale Rolle, unabhängig von der Rolle innerhalb einer Reise. */
+export type UserRole = 'admin' | 'user';
+
+/**
+ * Ein Nutzer, wie ihn andere zu sehen bekommen – etwa in der Mitgliederliste
+ * einer Reise.
+ *
+ * Bewusst weniger als `UserDto`: Welche globale Rolle jemand hat und ob er
+ * Videos rendern darf, geht Mitreisende nichts an. Die Heimatadresse erst
+ * recht nicht.
+ */
+export interface UserKurzDto {
+  id: string;
+  email: string | null;
+  displayName: string;
+  avatarUrl: string | null;
+}
+
 export interface UserDto {
   id: string;
   email: string | null;
@@ -25,6 +43,25 @@ export interface UserDto {
   avatarUrl: string | null;
   /** Heimatadresse, falls hinterlegt – Vorschlag fuer Start und Ziel. */
   home: HomeDto | null;
+  role: UserRole;
+  /**
+   * Darf fertige Videos rendern lassen. Die Vorschau darf jeder Editor –
+   * das Rendern bindet dagegen minutenlang einen ganzen Container.
+   */
+  canRenderVideo: boolean;
+}
+
+/** Ein Nutzer in der Verwaltungsansicht des Administrators. */
+export interface AdminUserDto {
+  id: string;
+  email: string | null;
+  displayName: string;
+  role: UserRole;
+  canRenderVideo: boolean;
+  createdAt: string;
+  lastLoginAt: string | null;
+  /** Anzahl eigener Reisen – Hinweis darauf, was beim Löschen dranhängt. */
+  ownedTrips: number;
 }
 
 export interface VehicleDto {
@@ -41,7 +78,7 @@ export interface VehicleDto {
 export interface TripMemberDto {
   userId: string;
   role: TripRole;
-  user: UserDto;
+  user: UserKurzDto;
 }
 
 export interface TripDto {
@@ -51,6 +88,11 @@ export interface TripDto {
   startDate: string | null;
   endDate: string | null;
   status: TripStatus;
+  /**
+   * Öffentlich sichtbar, auch ohne Anmeldung. Notizen bleiben dabei außen vor –
+   * eine öffentliche Reise liest die ganze Welt.
+   */
+  isPublic: boolean;
   vehicleId: string | null;
   coverPhotoId: string | null;
   ownerId: string;

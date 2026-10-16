@@ -387,3 +387,28 @@ export const videoInputSchema = z.object({
   bilderProSekunde: z.number().int().min(12).max(30).default(25),
 });
 export type VideoInput = z.infer<typeof videoInputSchema>;
+
+// ---------------------------------------------------------------------------
+// Rollen und Einrichtung
+// ---------------------------------------------------------------------------
+
+export const USER_ROLES = ['admin', 'user'] as const;
+
+/**
+ * Das Einrichtungstoken einer frischen Installation.
+ *
+ * Es steht nur im Log des Servers – wer es lesen kann, betreibt die Maschine.
+ * Damit wird nicht der erste Anmeldende zum Administrator, sondern derjenige,
+ * der tatsächlich Zugriff darauf hat.
+ */
+export const einrichtungInputSchema = z.object({
+  token: trimmed(200).min(8, 'Das Token ist zu kurz'),
+});
+export type EinrichtungInput = z.infer<typeof einrichtungInputSchema>;
+
+export const adminRolleInputSchema = z.object({
+  userId: z.string().min(1),
+  role: z.enum(USER_ROLES),
+  canRenderVideo: z.boolean().default(false),
+});
+export type AdminRolleInput = z.infer<typeof adminRolleInputSchema>;
