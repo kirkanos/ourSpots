@@ -448,14 +448,20 @@ function sammleHalte(
 ): Haltestelle[] {
   const roh: Haltestelle[] = [];
 
+  // Wie bei den Kamerapunkten: Das Rezept eines Renderauftrags kommt als JSON
+  // aus der Datenbank, und dort haelt kein Typ die Form fest. Ein Auftrag, der
+  // vor diesen Feldern angelegt wurde, hat sie schlicht nicht.
+  const haltProStation = e.haltProStation ?? [];
+  const fotoProStation = e.fotoProStation ?? [];
+
   etappen.forEach((etappe) => {
     const station = stationen.findIndex((s) => Math.abs(s.anteil - etappe.bis) < 1e-9);
     const index = station >= 0 ? station : null;
     // Dieselbe Regel wie in stationenMitHalt -- die Oberflaeche zeigt genau
     // die Regler, die hier auch wirken.
     // Je Station einstellbar; ohne eigenen Wert gilt die Grundeinstellung.
-    const dauer = index !== null ? (e.haltProStation[index] ?? e.haltSekunden) : e.haltSekunden;
-    const foto = index !== null ? (e.fotoProStation[index] ?? null) : null;
+    const dauer = index !== null ? (haltProStation[index] ?? e.haltSekunden) : e.haltSekunden;
+    const foto = index !== null ? (fotoProStation[index] ?? null) : null;
     roh.push({ anteil: etappe.bis, dauer, station: index, foto });
   });
 

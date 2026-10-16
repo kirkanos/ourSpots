@@ -53,6 +53,19 @@ export const GELAENDE_HERKUNFT =
   'Hoehendaten: <a href="https://github.com/tilezen/joerd">Tilezen</a> (EU-DEM / Copernicus)';
 
 /**
+ * Ebenen, die Ortsnamen tragen. Hier werden die Namen der eigenen Stationen
+ * ausgeblendet, damit sie nicht doppelt im Bild stehen -- einmal auf dem
+ * Etappenschild, einmal als Kartenbeschriftung darunter.
+ */
+export const ORTSNAMEN_EBENEN = [
+  'label_city',
+  'label_city_capital',
+  'label_town',
+  'label_village',
+  'label_other',
+];
+
+/**
  * Beschriftungen, die eine Reiseanimation nur unruhig machen: jedes Dorf, jeder
  * Strassenname, jeder Punkt am Wegesrand. Staedte, Laender und Gewaesser
  * bleiben stehen, weil sie die Orientierung tragen.

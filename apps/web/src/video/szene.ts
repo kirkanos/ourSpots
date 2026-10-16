@@ -19,7 +19,12 @@ import type { Zustand } from './timeline';
 import type { VideoFoto } from '@ourspots/shared';
 import type { Reisedaten } from './reisedaten';
 import { DREHBAR, markerSvg, type MarkerArt } from './marker';
-import { GELAENDE_HERKUNFT, GELAENDE_KACHELN, UNRUHIGE_EBENEN } from './stile';
+import {
+  GELAENDE_HERKUNFT,
+  GELAENDE_KACHELN,
+  ORTSNAMEN_EBENEN,
+  UNRUHIGE_EBENEN,
+} from './stile';
 
 // MapLibre verarbeitet Vektorkacheln UND GeoJSON-Quellen im Worker. Zeigt
 // dessen URL in Vites Modulpipeline, scheitert er stumm: Es rendern dann nur
@@ -62,6 +67,14 @@ export class Szene {
    */
   private fotos: Record<string, VideoFoto> = {};
   private fotoKasten: HTMLDivElement | null = null;
+  /**
+   * Die urspruenglichen Filter der Beschriftungsebenen.
+   *
+   * Gemerkt, bevor etwas daran geaendert wird: Der Stil bringt eigene Filter
+   * mit (Zoomschwellen, Ortsgroessen), und die duerfen nicht verloren gehen,
+   * wenn die eigenen Stationsnamen dazukommen.
+   */
+  private urspruenglicheFilter = new Map<string, unknown>();
 
   private constructor(karte: maplibregl.Map, optionen: SzeneOptionen) {
     this.karte = karte;
@@ -243,6 +256,48 @@ export class Szene {
     }
   }
 
+  /**
+   * Blendet die Kartenbeschriftung der eigenen Stationen aus.
+   *
+   * Sonst steht "Bremen" zweimal im Bild: einmal auf dem Etappenschild, einmal
+   * als Ortsname der Karte direkt darunter. Dauerhaft und nicht nur waehrend
+   * des Halts -- ein Name, der kurz vor dem Schild verschwindet und danach
+   * wieder auftaucht, faellt mehr auf als einer, der gar nicht da ist. Den Ort
+   * benennt ja ohnehin das Schild.
+   */
+  private verbergeStationsnamen(): void {
+    const m = this.karte;
+    const namen = (this.daten?.stationen ?? [])
+      .map((s) => s.name.trim())
+      .filter((n) => n.length > 0);
+
+    for (const id of ORTSNAMEN_EBENEN) {
+      if (!m.getLayer(id)) continue;
+
+      if (!this.urspruenglicheFilter.has(id)) {
+        this.urspruenglicheFilter.set(id, m.getFilter(id) ?? null);
+      }
+      const vorher = this.urspruenglicheFilter.get(id) as unknown[] | null;
+
+      if (namen.length === 0) {
+        m.setFilter(id, (vorher ?? null) as never);
+        continue;
+      }
+
+      // Der Stil beschriftet je nach Sprache aus verschiedenen Feldern --
+      // beide pruefen, sonst bleibt der deutsche Name stehen.
+      const eigene = [
+        'any',
+        ['in', ['get', 'name'], ['literal', namen]],
+        ['in', ['get', 'name:de'], ['literal', namen]],
+      ];
+      const filter = vorher
+        ? ['all', vorher, ['!', eigene]]
+        : ['!', eigene];
+      m.setFilter(id, filter as never);
+    }
+  }
+
   private duenneBeschriftungAus(): void {
     const m = this.karte;
     for (const id of UNRUHIGE_EBENEN) {
@@ -303,6 +358,7 @@ export class Szene {
   setzeDaten(daten: Reisedaten | null): void {
     this.daten = daten;
     this.setzeSchilder();
+    this.verbergeStationsnamen();
     const quelle = this.karte.getSource('route-gesamt') as maplibregl.GeoJSONSource | undefined;
     quelle?.setData(
       daten

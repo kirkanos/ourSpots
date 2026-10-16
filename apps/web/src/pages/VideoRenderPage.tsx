@@ -122,10 +122,13 @@ export function VideoRenderPage() {
         height: `${groesse.hoehe}px`,
         // Marker und Schilder sind in CSS-Pixeln bemasst. Ohne diesen Faktor
         // waere das Wohnmobil in einem 1080p-Video sichtbar kleiner als in der
-        // Vorschau, und die Schilder waeren kaum noch zu lesen. Bewusst aus
-        // der CSS-Hoehe gerechnet: Die Pixeldichte darf hier nicht eingehen,
-        // sonst waere das Wohnmobil in 4K doppelt so gross im Bild.
-        ['--videoskala' as string]: String(groesse.hoehe / 720),
+        // Vorschau, und die Schilder waeren kaum noch zu lesen.
+        //
+        // Bewusst aus den CSS-Massen und nicht aus der Pixeldichte: Sonst
+        // waere das Wohnmobil in 4K doppelt so gross im Bild. Und bewusst aus
+        // der *kuerzeren* Seite -- im Hochformat ist das die Breite, und ein
+        // Marker, der sich an der Hoehe orientiert, saehe dort riesig aus.
+        ['--videoskala' as string]: String(Math.min(groesse.breite, groesse.hoehe) / 720),
       }}
       data-bereit={bereit ? 'ja' : 'nein'}
     >

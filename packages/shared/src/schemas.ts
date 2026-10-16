@@ -360,6 +360,11 @@ export const VIDEO_GROESSEN = {
   '720p': { breite: 1920, hoehe: 1080, skala: 2 / 3 },
   '1080p': { breite: 1920, hoehe: 1080, skala: 1 },
   '4k': { breite: 1920, hoehe: 1080, skala: 2 },
+  /**
+   * Hochformat fürs Telefon. Hier ändert sich die Bühne wirklich – das ist
+   * der eine Fall, in dem ein anderer Bildausschnitt gewollt ist.
+   */
+  hochformat: { breite: 1080, hoehe: 1920, skala: 1 },
 } as const;
 
 /** Die Maße der fertigen Datei. */
@@ -378,7 +383,7 @@ export const videoInputSchema = z.object({
   ueberhoehung: z.number().min(1).max(8).default(3),
   ruhigeBeschriftung: z.boolean().default(true),
   einstellungen: videoEinstellungenSchema,
-  groesse: z.enum(['720p', '1080p', '4k']).default('720p'),
+  groesse: z.enum(['720p', '1080p', '4k', 'hochformat']).default('720p'),
   bilderProSekunde: z.number().int().min(12).max(30).default(25),
 });
 export type VideoInput = z.infer<typeof videoInputSchema>;
