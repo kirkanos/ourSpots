@@ -179,3 +179,16 @@ Auf dem Server rollt Woodpecker bei jedem Push auf `main` aus – Einzelheiten i
 | Alles stoppen | `npm run stop` |
 | Alles stoppen, auch den Stack | `npm run stop -- --all` |
 | Alles inklusive Daten löschen | `npm run stop -- --purge` |
+
+## Lizenz
+
+Der Quelltext steht unter der [MIT-Lizenz](LICENSE).
+
+Nicht dazu gehören die mitgelieferten Musikstücke in
+`apps/web/public/musik/` – sie stehen unter CC0 1.0 und haben eigene
+Urheber, nachzulesen in
+[HERKUNFT.md](apps/web/public/musik/HERKUNFT.md). Kartenmaterial und
+Routing kommen von Dritten und tragen deren Bedingungen: OpenStreetMap
+(ODbL), openrouteservice, und bei den Satellitenbildern EOX unter
+CC BY-NC-SA – ein damit erzeugtes und veröffentlichtes Video müsste
+unter derselben Lizenz stehen.
