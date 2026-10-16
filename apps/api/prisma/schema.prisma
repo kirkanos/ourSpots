@@ -184,7 +184,11 @@ model Route {
   profileHash String   @unique @db.Char(64)
   distanceM   Float    @db.Double
   durationS   Float    @db.Double
-  /// Encoded Polyline, Praezision 5.
+  /// Summierter An- und Abstieg in Metern, aus den Hoehendaten von ORS.
+  ascentM     Float    @default(0) @db.Double
+  descentM    Float    @default(0) @db.Double
+  /// Encoded Polyline, Praezision 5 -- bewusst ohne Hoehe, damit Karte,
+  /// GPX-Export und Reisevideo unveraendert damit arbeiten.
   geometry    String   @db.LongText
   bbox        String?  @db.VarChar(120)
   provider    String   @db.VarChar(40)

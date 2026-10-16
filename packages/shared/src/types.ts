@@ -127,6 +127,9 @@ export interface RouteLegDto {
   stageTitle: string | null;
   distanceM: number;
   durationS: number;
+  /** Summierter An- und Abstieg dieser Teilroute in Metern. */
+  ascentM: number;
+  descentM: number;
   geometry: string;
   cached: boolean;
 }
@@ -138,6 +141,9 @@ export interface TripRouteDto {
   legs: RouteLegDto[];
   totalDistanceM: number;
   totalDurationS: number;
+  /** Höhenmeter über die ganze Reise, aufsummiert aus den Teilrouten. */
+  totalAscentM: number;
+  totalDescentM: number;
   bbox: [number, number, number, number] | null;
   /** Hinweise, etwa wenn keine Fahrzeugmaße hinterlegt sind. */
   notes: string[];

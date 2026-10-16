@@ -110,6 +110,8 @@ export class RoutingService {
           stageTitle: group.title,
           distanceM: cached.distanceM,
           durationS: cached.durationS,
+          ascentM: cached.ascentM,
+          descentM: cached.descentM,
           geometry: cached.geometry,
           cached: true,
         });
@@ -136,6 +138,8 @@ export class RoutingService {
           profileHash: hash,
           distanceM: result.distanceM,
           durationS: result.durationS,
+          ascentM: result.ascentM,
+          descentM: result.descentM,
           geometry: result.geometry,
           bbox: result.bbox ? result.bbox.join(',') : null,
           provider: 'openrouteservice',
@@ -143,6 +147,8 @@ export class RoutingService {
         update: {
           distanceM: result.distanceM,
           durationS: result.durationS,
+          ascentM: result.ascentM,
+          descentM: result.descentM,
           geometry: result.geometry,
           bbox: result.bbox ? result.bbox.join(',') : null,
           computedAt: new Date(),
@@ -154,6 +160,8 @@ export class RoutingService {
         stageTitle: group.title,
         distanceM: result.distanceM,
         durationS: result.durationS,
+        ascentM: result.ascentM,
+        descentM: result.descentM,
         geometry: result.geometry,
         cached: false,
       });
@@ -172,6 +180,8 @@ export class RoutingService {
       legs,
       totalDistanceM: legs.reduce((sum, leg) => sum + leg.distanceM, 0),
       totalDurationS: legs.reduce((sum, leg) => sum + leg.durationS, 0),
+      totalAscentM: legs.reduce((sum, leg) => sum + leg.ascentM, 0),
+      totalDescentM: legs.reduce((sum, leg) => sum + leg.descentM, 0),
       bbox,
       notes,
     };
@@ -409,6 +419,11 @@ export class RoutingService {
       profile,
       preference: options.preference,
       avoid: [options.avoidTollways, options.avoidFerries, options.avoidHighways],
+      // Mitgehasht, damit der Wechsel auf Hoehendaten die alten Eintraege
+      // nicht trifft: Sie haben keine Hoehenmeter und wuerden sonst ewig
+      // weiterverwendet. Mit neuem Schluessel rechnet ORS jede Route einmal
+      // neu -- einmalig Kontingent, danach steht es dauerhaft im Cache.
+      fassung: 2,
     });
     return createHash('sha256').update(payload).digest('hex');
   }

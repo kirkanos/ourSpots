@@ -618,6 +618,12 @@ export function RoutePlanner({ tripId, canEdit }: Props) {
             <div className="row">
               <span className="badge badge--accent">{formatKm(route.totalDistanceM)}</span>
               <span className="badge badge--accent">{formatDuration(route.totalDurationS)}</span>
+              {route.totalAscentM > 0 && (
+                <span className="badge" title="Summierter Anstieg und Abstieg der Strecke">
+                  ↑ {Math.round(route.totalAscentM).toLocaleString('de-DE')} m ·
+                  ↓ {Math.round(route.totalDescentM).toLocaleString('de-DE')} m
+                </span>
+              )}
               <span className="badge">
                 {route.profile === 'driving-hgv' ? 'mit Wohnmobil-Maßen' : 'ohne Fahrzeugmaße'}
               </span>

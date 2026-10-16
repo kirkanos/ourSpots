@@ -5,7 +5,7 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import type { Vehicle } from '../generated/prisma/client';
-import type { RoutePreference } from '@ourspots/shared';
+import { decodePolyline3, encodePolyline, type RoutePreference } from '@ourspots/shared';
 import { AppConfig, CONFIG } from '../config/app-config';
 
 export interface RouteRequest {
@@ -21,8 +21,11 @@ export interface RouteRequest {
 export interface RouteResult {
   distanceM: number;
   durationS: number;
-  /** Encoded Polyline, Präzision 5. */
+  /** Encoded Polyline, Präzision 5 – ohne Höhe, siehe `flachMachen`. */
   geometry: string;
+  /** Summierter Anstieg bzw. Abstieg der Strecke in Metern. */
+  ascentM: number;
+  descentM: number;
   bbox: [number, number, number, number] | null;
   profile: string;
 }
@@ -65,6 +68,10 @@ export class OrsClient {
       units: 'm',
       instructions: false,
       geometry: true,
+      // Mit Hoehendaten liefert ORS Auf- und Abstieg in der Zusammenfassung.
+      // Die Geometrie kommt dann dreidimensional zurueck -- gespeichert wird
+      // sie weiter flach, siehe unten.
+      elevation: true,
     };
 
     const avoid: string[] = [];
@@ -104,7 +111,13 @@ export class OrsClient {
     return {
       distanceM: route.summary?.distance ?? 0,
       durationS: route.summary?.duration ?? 0,
-      geometry: route.geometry ?? '',
+      // Die Hoehe wieder herausrechnen: Karte, GPX-Export und Reisevideo
+      // erwarten eine flache Linie, und die Hoehenmeter stehen ohnehin als
+      // eigene Zahlen daneben. So bleibt alles unveraendert, was die
+      // Geometrie liest.
+      geometry: flachMachen(route.geometry ?? ''),
+      ascentM: route.summary?.ascent ?? 0,
+      descentM: route.summary?.descent ?? 0,
       bbox: normalizeBbox(data.bbox ?? route.bbox),
       profile,
     };
@@ -204,7 +217,8 @@ export function hasDimensions(vehicle: Vehicle): boolean {
 interface OrsDirectionsResponse {
   bbox?: number[];
   routes?: {
-    summary?: { distance?: number; duration?: number };
+    // ascent/descent liefert ORS nur, wenn die Anfrage elevation: true traegt.
+    summary?: { distance?: number; duration?: number; ascent?: number; descent?: number };
     geometry?: string;
     bbox?: number[];
   }[];
@@ -234,4 +248,18 @@ function extractOrsMessage(text: string): string {
   } catch {
     return '';
   }
+}
+
+/**
+ * Macht aus der dreidimensionalen Geometrie von ORS wieder eine flache.
+ *
+ * Gespeichert und weitergereicht wird die Strecke ohne Höhe: Karte,
+ * GPX-Export und Reisevideo erwarten zwei Werte je Punkt, und die Höhenmeter
+ * braucht niemand punktweise – es zählt die Summe, und die liefert ORS
+ * getrennt. So bleibt alles unverändert, was die Geometrie liest.
+ */
+function flachMachen(geometry: string): string {
+  if (!geometry) return '';
+  const punkte = decodePolyline3(geometry);
+  return encodePolyline(punkte.map(([lat, lon]) => [lat, lon]));
 }
