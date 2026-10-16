@@ -7,7 +7,6 @@ import {
   Param,
   Post,
   Put,
-  UsePipes,
 } from '@nestjs/common';
 import type { User } from '../generated/prisma/client';
 import {
@@ -39,9 +38,14 @@ export class TripsController {
     return this.trips.get(id, user.id);
   }
 
+  // Die Pruefung haengt am Koerper, nicht an der Methode: @UsePipes legt sie
+  // auf *alle* Parameter, also auch auf den von @CurrentUser eingesetzten
+  // Nutzer -- der faellt dann durch tripInputSchema und das Anlegen scheitert.
   @Post()
-  @UsePipes(new ZodValidationPipe(tripInputSchema))
-  create(@Body() body: TripInput, @CurrentUser() user: User): Promise<TripDto> {
+  create(
+    @Body(new ZodValidationPipe(tripInputSchema)) body: TripInput,
+    @CurrentUser() user: User,
+  ): Promise<TripDto> {
     return this.trips.create(user.id, body);
   }
 
