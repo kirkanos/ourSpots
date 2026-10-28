@@ -4,7 +4,7 @@
 #
 # Bewusst Debian statt Alpine: Chromium wird fuer glibc gebaut und ausgeliefert,
 # und Playwright laedt genau diesen Build herunter. Unter musl laeuft er nicht.
-FROM node:24-bookworm-slim
+FROM node:26-bookworm-slim
 
 WORKDIR /app
 # Nicht nach /root, sonst kaeme der spaetere Nutzer nicht mehr an den Browser.
