@@ -37,7 +37,7 @@ steps:
   - name: check
     # Braucht die .env nicht -- kann sofort mitlaufen.
     depends_on: []
-    image: node:24-bookworm-slim
+    image: node:26-bookworm-slim
     commands:
       # Typprüfung über beide Anwendungen und das gemeinsame Paket, dazu der
       # Produktionsbuild des Frontends – der fängt ab, was erst beim Bündeln
